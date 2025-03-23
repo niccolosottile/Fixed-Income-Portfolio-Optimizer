@@ -1,12 +1,26 @@
+import forms from '@tailwindcss/forms'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {},
   },
-  plugins: [],
+  safelist: [
+    'bg-white',
+    'dark:bg-gray-800',
+    'bg-gray-50',
+    'dark:bg-gray-700',
+    'bg-indigo-50',
+    'bg-indigo-600',
+  ],
+  plugins: [
+    forms,
+  ],
+  corePlugins: {
+    backgroundColor: true,
+  },
 }

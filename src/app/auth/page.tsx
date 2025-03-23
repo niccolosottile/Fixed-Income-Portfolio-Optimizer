@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -18,10 +17,15 @@ export default function Auth() {
     setError(null);
     
     try {
-      // Sign up the user
+      // Sign up the user with metadata including name
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name: name || email.split('@')[0], // Store name in auth.users metadata
+          }
+        }
       });
       
       if (signUpError) throw signUpError;
@@ -39,16 +43,21 @@ export default function Auth() {
               portfolio_value: 0, // default starting value
             }
           ]);
-
+          
         if (profileError) {
           console.error('Error creating user profile:', profileError);
-          throw new Error('Failed to create user profile');
+          throw new Error('Failed to create user profile: ' + profileError.message);
         }
+        
+        alert('Check your email for the confirmation link!');
+        // Clear the form after successful signup
+        setEmail('');
+        setPassword('');
+        setName('');
       }
-      
-      alert('Check your email for the confirmation link!');
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'An error occurred during sign up');
+      console.error('Signup error:', error);
     } finally {
       setLoading(false);
     }
@@ -60,25 +69,28 @@ export default function Auth() {
     setError(null);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) throw error;
       
+      // Successful login
+      console.log('Successfully logged in:', data);
       router.push('/');
     } catch (error: any) {
-      setError(error.message);
+      console.error('Login error:', error);
+      setError(error.message || 'Invalid login credentials');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center py-2">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <main className="flex w-full flex-1 flex-col items-center justify-center px-20 text-center">
-        <div className="bg-white p-8 rounded-lg shadow-md w-96">
+        <div className="bg-white p-8 rounded shadow-md w-96">
           <h1 className="text-2xl font-bold mb-6">Fixed Income Tracker</h1>
           
           {error && (
@@ -94,7 +106,7 @@ export default function Auth() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded"
                 required
               />
             </div>
@@ -105,27 +117,26 @@ export default function Auth() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded"
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Name (optional)</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded"
               />
             </div>
             
             <div className="flex space-x-4">
               <button
-                type="button"
+                type="submit"
                 onClick={handleSignIn}
                 disabled={loading}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 {loading ? 'Loading...' : 'Sign In'}
               </button>
@@ -134,7 +145,7 @@ export default function Auth() {
                 type="button"
                 onClick={handleSignUp}
                 disabled={loading}
-                className="flex-1 py-2 px-4 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                className="flex-1 py-2 px-4 border border-blue-600 text-blue-600 rounded hover:bg-blue-50"
               >
                 Sign Up
               </button>

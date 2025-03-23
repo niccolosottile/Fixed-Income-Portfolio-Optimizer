@@ -1,21 +1,70 @@
 'use client';
-
 import { useState } from 'react';
-import { FixedIncomeAsset } from '@/types';
+import { FixedIncomeAsset, User } from '@/types';
 import AssetForm from './AssetForm';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
+const currencySymbols: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  CHF: 'CHF',
+  JPY: '¥',
+  SEK: 'kr',
+  NOK: 'kr',
+  DKK: 'kr',
+  PLN: 'zł',
+  CZK: 'Kč',
+};
+
+const assetTypeNames: Record<string, string> = {
+  governmentBond: 'Government Bond',
+  corporateBond: 'Corporate Bond',
+  municipalBond: 'Municipal Bond',
+  CD: 'Certificate of Deposit',
+  treasuryBill: 'Treasury Bill',
+  treasuryNote: 'Treasury Note',
+  treasuryBond: 'Treasury Bond',
+  moneyMarket: 'Money Market',
+  gilts: 'UK Gilts',
+  bunds: 'German Bunds',
+  OATs: 'French OATs',
+  BTPs: 'Italian BTPs',
+  structuredNote: 'Structured Note',
+  inflationLinkedBond: 'Inflation-Linked Bond',
+  subordinatedBond: 'Subordinated Bond',
+  perpetualBond: 'Perpetual Bond',
+  savingsBond: 'Savings Bond',
+  other: 'Other'
+};
+
+const regionNames: Record<string, string> = {
+  eurozone: 'Eurozone',
+  uk: 'United Kingdom',
+  us: 'United States',
+  emea: 'Europe (non-Eurozone)',
+  apac: 'Asia Pacific',
+  latam: 'Latin America',
+  global: 'Global'
+};
+
 interface AssetTableProps {
   assets: FixedIncomeAsset[];
   setAssets: React.Dispatch<React.SetStateAction<FixedIncomeAsset[]>>;
+  user?: User;
 }
 
-export default function AssetTable({ assets, setAssets }: AssetTableProps) {
+export default function AssetTable({ assets, setAssets, user }: AssetTableProps) {
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<keyof FixedIncomeAsset>('maturity_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
+  const [filter, setFilter] = useState<string>('all');
+  const [isAddAssetOpen, setIsAddAssetOpen] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  
+  const userCurrency = user?.currency || 'EUR';
+  
   const handleSort = (field: keyof FixedIncomeAsset) => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -24,8 +73,43 @@ export default function AssetTable({ assets, setAssets }: AssetTableProps) {
       setSortDirection('asc');
     }
   };
+  
+  // Filter assets by type group and search term
+  const filteredAssets = assets.filter(asset => {
+    const term = searchTerm.toLowerCase();
+    const matchesTerm = asset.name.toLowerCase().includes(term) ||
+             asset.type.toLowerCase().includes(term) ||
+             asset.issuer_type.toLowerCase().includes(term) ||
+             (asset.rating ? asset.rating.toLowerCase().includes(term) : false) ||
+             (asset.region ? asset.region.toLowerCase().includes(term) : false);
 
-  const sortedAssets = [...assets].sort((a, b) => {
+    // First apply type filter
+    let matchesFilter = filter === 'all';
+    
+    if (!matchesFilter) {
+      if (filter === 'government') {
+        matchesFilter = ['governmentBond', 'treasuryBill', 'treasuryNote', 'treasuryBond', 'gilts', 'bunds', 'OATs', 'BTPs', 'inflationLinkedBond'].includes(asset.type);
+      } else if (filter === 'corporate') {
+        matchesFilter = ['corporateBond', 'structuredNote', 'subordinatedBond', 'perpetualBond'].includes(asset.type);
+      } else if (filter === 'savings') {
+        matchesFilter = ['CD', 'savingsBond', 'moneyMarket'].includes(asset.type);
+      } else if (filter === 'municipal') {
+        matchesFilter = ['municipalBond'].includes(asset.type);
+      } else {
+        matchesFilter = asset.type === filter;
+      }
+    }
+    
+    // Then apply search filter if there's a search term
+    if (searchTerm && matchesFilter) {
+      return matchesTerm;
+    }
+    
+    return matchesFilter;
+  });
+  
+  // Sort assets
+  const sortedAssets = [...filteredAssets].sort((a, b) => {
     const aVal = a[sortField];
     const bVal = b[sortField];
     
@@ -45,11 +129,12 @@ export default function AssetTable({ assets, setAssets }: AssetTableProps) {
     }
     return 0;
   });
-
+  
   const handleNewAsset = (asset: FixedIncomeAsset) => {
     setAssets([...assets, asset]);
+    setIsAddAssetOpen(false);
   };
-
+  
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this asset?')) {
       try {
@@ -67,13 +152,17 @@ export default function AssetTable({ assets, setAssets }: AssetTableProps) {
       }
     }
   };
-
+  
   const calculateYieldToMaturity = (asset: FixedIncomeAsset) => {
+    // Skip YTM calculation for perpetual bonds
+    if (asset.type === 'perpetualBond') return 'Perpetual';
+    
     // Simple YTM calculation for display purposes
     const faceValue = asset.face_value;
     const price = asset.purchase_price;
     const couponRate = asset.interest_rate / 100;
-    const yearsToMaturity = (new Date(asset.maturity_date).getTime() - new Date().getTime()) / 
+    const maturityDate = new Date(asset.maturity_date);
+    const yearsToMaturity = (maturityDate.getTime() - new Date().getTime()) / 
                             (1000 * 60 * 60 * 24 * 365);
     
     if (yearsToMaturity <= 0) return 'Matured';
@@ -85,161 +174,374 @@ export default function AssetTable({ assets, setAssets }: AssetTableProps) {
     
     return approximateYTM.toFixed(2) + '%';
   };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  
+  const formatCurrency = (amount: number, currency = userCurrency) => {
+    const locale = currency === 'EUR' ? 'de-DE' : 
+                  currency === 'GBP' ? 'en-GB' : 'en-US';
+    
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
-
+  
   const toggleExpandAsset = (id: string) => {
     setExpandedAssetId(expandedAssetId === id ? null : id);
   };
 
+  // Get yield status color
+  const getYieldStatusColor = (interestRate: number) => {
+    if (interestRate > 4.5) return 'badge-green';
+    if (interestRate > 3.0) return 'badge-blue';
+    if (interestRate > 2.0) return 'badge-yellow';
+    return 'badge-gray';
+  };
+
+  // Get days to maturity
+  const getDaysToMaturity = (maturityDate: string) => {
+    if (!maturityDate) return 0;
+    const today = new Date();
+    const maturity = new Date(maturityDate);
+    return Math.max(0, Math.round((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  };
+  
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Your Fixed Income Assets</h2>
-        <AssetForm userId={assets.length > 0 ? assets[0].user_id : 'test-user-id'} onAssetAdded={handleNewAsset} />
+    <div className="saas-card">
+      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Fixed Income Assets</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {assets.length} {assets.length === 1 ? 'asset' : 'assets'} in your portfolio
+            </p>
+          </div>
+          
+          <button 
+            onClick={() => setIsAddAssetOpen(!isAddAssetOpen)} 
+            className="btn-primary flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            Add New Asset
+          </button>
+        </div>
+        
+        {isAddAssetOpen && (
+          <div className="bg-gray-50 dark:bg-gray-800 rounded p-4 mb-6 border border-gray-100 dark:border-gray-700">
+            <h3 className="text-lg font-medium mb-4">Add New Asset</h3>
+            <AssetForm 
+              userId={assets.length > 0 ? assets[0].user_id : 'test-user-id'} 
+              onAssetAdded={handleNewAsset} 
+              userCurrency={userCurrency}
+              userCountry={user?.country}
+            />
+          </div>
+        )}
+        
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-1 w-full sm:w-auto">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search assets..."
+                className="form-input pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Filter: </label>
+            <select 
+              value={filter} 
+              onChange={(e) => setFilter(e.target.value)}
+              className="form-select sm:w-auto"
+            >
+              <option value="all">All Assets</option>
+              <optgroup label="Asset Groups">
+                <option value="government">Government Securities</option>
+                <option value="corporate">Corporate Bonds</option>
+                <option value="municipal">Municipal Bonds</option>
+                <option value="savings">Savings & Money Market</option>
+              </optgroup>
+              <optgroup label="Specific Types">
+                {Object.entries(assetTypeNames).map(([type, name]) => (
+                  <option key={type} value={type}>{name}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+        </div>
       </div>
       
       {assets.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p>You don't have any assets yet. Add your first one to get started!</p>
+        <div className="text-center py-16 px-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assets yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+            Start building your fixed income portfolio by adding your first asset. Click the "Add New Asset" button to get started.
+          </p>
+          <button 
+            onClick={() => setIsAddAssetOpen(true)} 
+            className="btn-primary"
+          >
+            Add Your First Asset
+          </button>
+        </div>
+      ) : filteredAssets.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">No assets match your filter or search criteria.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="saas-table">
+            <thead>
               <tr>
-                <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                <th 
+                  className="cursor-pointer"
                   onClick={() => handleSort('type')}
                 >
-                  Type
-                  {sortField === 'type' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <button className="flex items-center">
+                    Type
+                    {sortField === 'type' && (
+                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="cursor-pointer"
                   onClick={() => handleSort('name')}
                 >
-                  Name
-                  {sortField === 'name' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <button className="flex items-center">
+                    Name
+                    {sortField === 'name' && (
+                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="cursor-pointer"
                   onClick={() => handleSort('maturity_date')}
                 >
-                  Maturity
-                  {sortField === 'maturity_date' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <button className="flex items-center">
+                    Maturity
+                    {sortField === 'maturity_date' && (
+                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="cursor-pointer"
                   onClick={() => handleSort('face_value')}
                 >
-                  Value
-                  {sortField === 'face_value' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <button className="flex items-center">
+                    Value
+                    {sortField === 'face_value' && (
+                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
                 </th>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                  className="cursor-pointer"
                   onClick={() => handleSort('interest_rate')}
                 >
-                  Rate
-                  {sortField === 'interest_rate' && (
-                    <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
+                  <button className="flex items-center">
+                    Rate
+                    {sortField === 'interest_rate' && (
+                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </button>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  YTM
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th>YTM</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {sortedAssets.map((asset) => (
                 <>
-                  <tr key={asset.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {asset.type === 'bond' && 'Bond'}
-                        {asset.type === 'CD' && 'CD'}
-                        {asset.type === 'treasury' && 'Treasury'}
-                        {asset.type === 'moneyMarket' && 'Money Market'}
+                  <tr key={asset.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <td>
+                      <div className="flex items-center">
+                        <span className={`badge mr-2 ${asset.issuer_type === 'corporate' ? 'badge-pink' : asset.issuer_type === 'government' ? 'badge-blue' : 'badge-gray'}`}>
+                          {asset.issuer_type === 'corporate' ? 'C' : asset.issuer_type === 'government' ? 'G' : 'O'}
+                        </span>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {assetTypeNames[asset.type] || asset.type}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {regionNames[asset.region] || asset.region}
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{asset.name}</div>
+                    <td>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{asset.name}</div>
                       {asset.rating && (
-                        <div className="text-xs text-gray-500">Rating: {asset.rating}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                          <span>Rating: {asset.rating}</span>
+                          {asset.rating_agency && asset.rating_agency !== 'none' && (
+                            <span className="ml-1">({asset.rating_agency})</span>
+                          )}
+                        </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {format(new Date(asset.maturity_date), 'MMM d, yyyy')}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Purchased: {format(new Date(asset.purchase_date), 'MMM d, yyyy')}
+                    <td>
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {asset.type === 'perpetualBond' ? (
+                          <span className="badge badge-purple">Perpetual</span>
+                        ) : (
+                          <div>
+                            <div>{format(new Date(asset.maturity_date), 'MMM d, yyyy')}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {getDaysToMaturity(asset.maturity_date) > 0 ? (
+                                <span>
+                                  {getDaysToMaturity(asset.maturity_date)} days left
+                                </span>
+                              ) : (
+                                <span className="text-red-500">Matured</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(asset.face_value)}</div>
+                    <td>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(asset.face_value, asset.currency)}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {asset.currency}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{asset.interest_rate}%</div>
-                      <div className="text-xs text-gray-500">
+                    <td>
+                      <div>
+                        <span className={`badge ${getYieldStatusColor(asset.interest_rate)}`}>
+                          {asset.interest_rate}%
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {asset.interest_payment_frequency === 'monthly' && 'Monthly'}
                         {asset.interest_payment_frequency === 'quarterly' && 'Quarterly'}
                         {asset.interest_payment_frequency === 'semiannual' && 'Semi-Annual'}
                         {asset.interest_payment_frequency === 'annual' && 'Annual'}
+                        {asset.interest_payment_frequency === 'atMaturity' && 'At Maturity'}
+                        {asset.interest_payment_frequency === 'irregular' && 'Irregular'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {calculateYieldToMaturity(asset)}
+                    <td className="text-sm font-medium">
+                      <span className="badge badge-blue">
+                        {calculateYieldToMaturity(asset)}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => toggleExpandAsset(asset.id)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        {expandedAssetId === asset.id ? 'Hide' : 'Details'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(asset.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
+                    <td className="text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => toggleExpandAsset(asset.id)}
+                          className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                          title={expandedAssetId === asset.id ? "Hide details" : "Show details"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {expandedAssetId === asset.id ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            )}
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(asset.id)}
+                          className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Delete asset"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   
                   {expandedAssetId === asset.id && (
-                    <tr key={`${asset.id}-expanded`}>
-                      <td colSpan={7} className="px-6 py-4 bg-gray-50">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Purchase Info</p>
-                            <p className="text-sm">Purchase Price: {formatCurrency(asset.purchase_price)}</p>
-                            <p className="text-sm">Current Premium/Discount: {(((asset.current_price || asset.purchase_price) / asset.face_value - 1) * 100).toFixed(2)}%</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Tax Status</p>
-                            <p className="text-sm">{asset.taxable ? 'Taxable' : 'Tax-Free'}</p>
-                            <p className="text-sm">Annual Interest: {formatCurrency(asset.face_value * (asset.interest_rate / 100))}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">Time to Maturity</p>
-                            <p className="text-sm">{Math.max(0, Math.round((new Date(asset.maturity_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))} days</p>
+                    <tr className="bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={7}>
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Purchase Information</h4>
+                              <div className="space-y-1 text-sm">
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Purchase Date:</span>
+                                  <span>{format(new Date(asset.purchase_date), 'MMM d, yyyy')}</span>
+                                </p>
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Purchase Price:</span>
+                                  <span>{formatCurrency(asset.purchase_price, asset.currency)}</span>
+                                </p>
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Premium/Discount:</span>
+                                  <span className={((asset.current_price || asset.purchase_price) / asset.face_value - 1) > 0 ? 'text-green-600' : 'text-red-600'}>
+                                    {(((asset.current_price || asset.purchase_price) / asset.face_value - 1) * 100).toFixed(2)}%
+                                  </span>
+                                </p>
+                                {asset.callable && (
+                                  <p className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">Callable:</span>
+                                    <span className="text-amber-600">
+                                      {asset.call_date ? format(new Date(asset.call_date), 'MMM d, yyyy') : 'Yes'}
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax & Income</h4>
+                              <div className="space-y-1 text-sm">
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Tax Status:</span>
+                                  <span>{asset.taxable ? 'Taxable' : 'Tax-Free'}</span>
+                                </p>
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Annual Interest:</span>
+                                  <span>{formatCurrency(asset.face_value * (asset.interest_rate / 100), asset.currency)}</span>
+                                </p>
+                                {asset.esg_rating && (
+                                  <p className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">ESG Rating:</span>
+                                    <span className="badge badge-green">{asset.esg_rating}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Maturity Details</h4>
+                              <div className="space-y-1 text-sm">
+                                {asset.type === 'perpetualBond' ? (
+                                  <p className="text-sm">Perpetual (no maturity)</p>
+                                ) : (
+                                  <p className="flex justify-between">
+                                    <span className="text-gray-600 dark:text-gray-400">Days to Maturity:</span>
+                                    <span>{getDaysToMaturity(asset.maturity_date)}</span>
+                                  </p>
+                                )}
+                                <p className="flex justify-between">
+                                  <span className="text-gray-600 dark:text-gray-400">Issuer Type:</span>
+                                  <span>{asset.issuer_type.charAt(0).toUpperCase() + asset.issuer_type.slice(1)}</span>
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </td>
