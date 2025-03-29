@@ -5,19 +5,6 @@ import AssetForm from './AssetForm';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 
-const currencySymbols: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  CHF: 'CHF',
-  JPY: '¥',
-  SEK: 'kr',
-  NOK: 'kr',
-  DKK: 'kr',
-  PLN: 'zł',
-  CZK: 'Kč',
-};
-
 const assetTypeNames: Record<string, string> = {
   governmentBond: 'Government Bond',
   corporateBond: 'Corporate Bond',
@@ -130,8 +117,10 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
     return 0;
   });
   
-  const handleNewAsset = (asset: FixedIncomeAsset) => {
-    setAssets([...assets, asset]);
+  const handleNewAsset = (asset: FixedIncomeAsset | null) => {
+    if (asset) {
+      setAssets([...assets, asset]);
+    }
     setIsAddAssetOpen(false);
   };
   
@@ -207,9 +196,9 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
   };
   
   return (
-    <div className="saas-card">
-      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Fixed Income Assets</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -221,32 +210,24 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
             onClick={() => setIsAddAssetOpen(!isAddAssetOpen)} 
             className="btn-primary flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            Add New Asset
+            <span className="icon-container icon-sm mr-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+            </span>
+            Add Asset
           </button>
         </div>
         
-        {isAddAssetOpen && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded p-4 mb-6 border border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg font-medium mb-4">Add New Asset</h3>
-            <AssetForm 
-              userId={assets.length > 0 ? assets[0].user_id : 'test-user-id'} 
-              onAssetAdded={handleNewAsset} 
-              userCurrency={userCurrency}
-              userCountry={user?.country}
-            />
-          </div>
-        )}
-        
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-5">
           <div className="flex flex-1 w-full sm:w-auto">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
+                <span className="icon-container icon-xs">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                  </svg>
+                </span>
               </div>
               <input
                 type="text"
@@ -283,15 +264,17 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
       </div>
       
       {assets.length === 0 ? (
-        <div className="text-center py-16 px-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+        <div className="text-center py-16 px-4 flex-1 flex flex-col items-center justify-center">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+            <span className="icon-container icon-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </span>
           </div>
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assets yet</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-            Start building your fixed income portfolio by adding your first asset. Click the "Add New Asset" button to get started.
+            Start building your fixed income portfolio by adding your first asset. Click the "Add Asset" button to get started.
           </p>
           <button 
             onClick={() => setIsAddAssetOpen(true)} 
@@ -301,16 +284,16 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
           </button>
         </div>
       ) : filteredAssets.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-12 flex-1 flex items-center justify-center">
           <p className="text-gray-500 dark:text-gray-400">No assets match your filter or search criteria.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
           <table className="saas-table">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr>
                 <th 
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-gray-50 dark:bg-gray-700/50"
                   onClick={() => handleSort('type')}
                 >
                   <button className="flex items-center">
@@ -321,7 +304,7 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                   </button>
                 </th>
                 <th
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-gray-50 dark:bg-gray-700/50"
                   onClick={() => handleSort('name')}
                 >
                   <button className="flex items-center">
@@ -332,7 +315,7 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                   </button>
                 </th>
                 <th
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-gray-50 dark:bg-gray-700/50"
                   onClick={() => handleSort('maturity_date')}
                 >
                   <button className="flex items-center">
@@ -343,7 +326,7 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                   </button>
                 </th>
                 <th
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-gray-50 dark:bg-gray-700/50"
                   onClick={() => handleSort('face_value')}
                 >
                   <button className="flex items-center">
@@ -354,7 +337,7 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                   </button>
                 </th>
                 <th
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-gray-50 dark:bg-gray-700/50"
                   onClick={() => handleSort('interest_rate')}
                 >
                   <button className="flex items-center">
@@ -364,8 +347,8 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                     )}
                   </button>
                 </th>
-                <th>YTM</th>
-                <th className="text-right">Actions</th>
+                <th className="bg-gray-50 dark:bg-gray-700/50">YTM</th>
+                <th className="text-right bg-gray-50 dark:bg-gray-700/50">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -450,38 +433,42 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => toggleExpandAsset(asset.id)}
-                          className="p-1 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                          className="icon-button"
                           title={expandedAssetId === asset.id ? "Hide details" : "Show details"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            {expandedAssetId === asset.id ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            )}
-                          </svg>
+                          <span className="icon-container icon-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              {expandedAssetId === asset.id ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          </span>
                         </button>
                         <button
                           onClick={() => handleDelete(asset.id)}
-                          className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="icon-button-danger"
                           title="Delete asset"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          <span className="icon-container icon-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </span>
                         </button>
                       </div>
                     </td>
                   </tr>
                   
                   {expandedAssetId === asset.id && (
-                    <tr className="bg-gray-50 dark:bg-gray-800/50">
+                    <tr className="expanded-content">
                       <td colSpan={7}>
                         <div className="p-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Purchase Information</h4>
-                              <div className="space-y-1 text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Purchase Information</h4>
+                              <div className="space-y-2 text-sm">
                                 <p className="flex justify-between">
                                   <span className="text-gray-600 dark:text-gray-400">Purchase Date:</span>
                                   <span>{format(new Date(asset.purchase_date), 'MMM d, yyyy')}</span>
@@ -506,9 +493,9 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                                 )}
                               </div>
                             </div>
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax & Income</h4>
-                              <div className="space-y-1 text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tax & Income</h4>
+                              <div className="space-y-2 text-sm">
                                 <p className="flex justify-between">
                                   <span className="text-gray-600 dark:text-gray-400">Tax Status:</span>
                                   <span>{asset.taxable ? 'Taxable' : 'Tax-Free'}</span>
@@ -525,9 +512,9 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                                 )}
                               </div>
                             </div>
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Maturity Details</h4>
-                              <div className="space-y-1 text-sm">
+                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Maturity Details</h4>
+                              <div className="space-y-2 text-sm">
                                 {asset.type === 'perpetualBond' ? (
                                   <p className="text-sm">Perpetual (no maturity)</p>
                                 ) : (
@@ -551,6 +538,34 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Add Asset Modal */}
+      {isAddAssetOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="text-lg font-medium">Add Asset</h2>
+                <button 
+                  onClick={() => setIsAddAssetOpen(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="modal-close-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <div className="modal-body">
+                <AssetForm 
+                  userId={user?.id || ''} 
+                  onAssetAdded={handleNewAsset} 
+                  userCurrency={userCurrency}
+                  userCountry={user?.country}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

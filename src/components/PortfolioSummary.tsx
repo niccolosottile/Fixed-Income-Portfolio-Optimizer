@@ -278,7 +278,7 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
   };
 
   return (
-    <div className="saas-card p-6 overflow-hidden">
+    <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Portfolio Summary</h2>
         <span className="badge badge-blue">Updated today</span>
@@ -301,9 +301,11 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
             <p className="stat-card-value text-emerald-600">{(metrics.weightedYield || 0).toFixed(2)}%</p>
             {metrics.weightedYield > 3.5 && (
               <span className="text-xs ml-2 text-emerald-500 flex items-center mb-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                </svg>
+                <span className="icon-container icon-xs mr-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                  </svg>
+                </span>
                 Good
               </span>
             )}
@@ -329,10 +331,10 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1">
+        <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1 flex flex-col">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Asset Type Distribution</h3>
-          <div className="h-48 relative">
+          <div className="flex-1 relative min-h-[150px]">
             {assets.length > 0 ? (
               <>
                 <Doughnut data={assetTypeData} options={chartOptions} />
@@ -349,9 +351,9 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
           </div>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1">
+        <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1 flex flex-col">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tax Status</h3>
-          <div className="h-48 relative">
+          <div className="flex-1 relative min-h-[150px]">
             {assets.length > 0 ? (
               <>
                 <Doughnut data={taxStatusData} options={chartOptions} />
@@ -371,11 +373,11 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
         </div>
         
         {assets.length > 0 && Object.keys(metrics.currencyDistribution).length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 col-span-1 flex flex-col">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               {Object.keys(metrics.currencyDistribution).length > 1 ? "Currency Distribution" : "Currency"}
             </h3>
-            <div className="h-48 relative">
+            <div className="flex-1 relative min-h-[150px]">
               {Object.keys(metrics.currencyDistribution).length > 1 ? (
                 <Doughnut data={currencyData} options={chartOptions} />
               ) : (

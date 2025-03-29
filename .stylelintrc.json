@@ -1,0 +1,18 @@
+{
+  "extends": [
+    "stylelint-config-standard"
+  ],
+  "rules": {
+    "at-rule-no-unknown": null,
+    "at-rule-empty-line-before": [
+      "always", 
+      { 
+        "except": ["first-nested", "blockless-after-blockless"],
+        "ignore": ["after-comment"],
+        "ignoreAtRules": ["tailwind", "apply", "layer"]
+      }
+    ],
+    "no-descending-specificity": null,
+    "color-hex-length": "short"
+  }
+}

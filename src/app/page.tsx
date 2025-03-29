@@ -8,19 +8,6 @@ import RecommendationPanel from '../components/RecommendationPanel';
 import PortfolioSummary from '../components/PortfolioSummary';
 import { addMonths, differenceInMonths, format } from 'date-fns';
 
-const currencySymbols: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  CHF: 'CHF',
-  JPY: '¥',
-  SEK: 'kr',
-  NOK: 'kr',
-  DKK: 'kr',
-  PLN: 'zł',
-  CZK: 'Kč',
-};
-
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [assets, setAssets] = useState<FixedIncomeAsset[]>([]);
@@ -151,9 +138,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard-layout">
+    <main className="dashboard-layout">
       {/* Dashboard Header */}
-      <header className="dashboard-header">
+      <header className="dashboard-header mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Investment Portfolio
@@ -167,32 +154,40 @@ export default function Dashboard() {
             <div className="text-gray-500 dark:text-gray-400">Welcome,</div>
             <div className="font-medium">{user.name || user.email}</div>
           </div>
-          <div className="bg-indigo-100 text-indigo-800 h-10 w-10 rounded-full flex items-center justify-center font-bold">
-            {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-          </div>
         </div>
       </header>
-
-      {/* Portfolio Summary Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
-          <PortfolioSummary assets={assets} user={user} />
-        </div>
-        <div className="lg:col-span-1">
-          <LiquidityTimeline events={liquidityEvents} assets={assets} />
-        </div>
-      </div>
       
-      {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <AssetTable assets={assets} setAssets={setAssets} user={user} />
+      {/* Puzzle Layout */}
+      <div className="puzzle-layout">
+        {/* Portfolio Summary - Large Width, Top Left */}
+        <div className="puzzle-item col-span-12 md:col-span-7">
+          <div className="puzzle-item-content">
+            <PortfolioSummary assets={assets} user={user} />
+          </div>
         </div>
-        <div className="lg:col-span-1">
-          <RecommendationPanel recommendations={recommendations} user={user} />
+        
+        {/* Liquidity Timeline - Normal Width, Top Right */}
+        <div className="puzzle-item col-span-12 md:col-span-5">
+          <div className="puzzle-item-content">
+            <LiquidityTimeline events={liquidityEvents} assets={assets} />
+          </div>
+        </div>
+        
+        {/* Asset Table - Large Width, Bottom Left, Taller */}
+        <div className="puzzle-item puzzle-item-wide">
+          <div className="puzzle-item-content">
+            <AssetTable assets={assets} setAssets={setAssets} user={user} />
+          </div>
+        </div>
+        
+        {/* Recommendation Panel - Normal Width, Bottom Right, Now Taller */}
+        <div className="puzzle-item puzzle-item-normal">
+          <div className="puzzle-item-content">
+            <RecommendationPanel recommendations={recommendations} user={user} />
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

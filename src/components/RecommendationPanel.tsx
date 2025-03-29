@@ -88,12 +88,12 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
   };
   
   return (
-    <div className="saas-card overflow-hidden">
-      <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+    <div className="h-full flex flex-col">
+      <div className="border-b border-gray-100 dark:border-gray-700 mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Recommendations</h2>
         
         {/* Tabs for recommendation categories */}
-        <div className="flex overflow-x-auto pb-1 hide-scrollbar -mx-1">
+        <div className="flex overflow-x-auto hide-scrollbar -mx-1 mb-4">
           <div className="flex space-x-2 px-1 min-w-full">
             <button
               onClick={() => setActiveTab('all')}
@@ -124,10 +124,10 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
         </div>
       </div>
       
-      <div className="p-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
         {/* Show description for selected category */}
         {activeTab !== 'all' && (
-          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded mb-5 flex items-start">
+          <div className="bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-lg mb-4 flex items-start border border-gray-100 dark:border-gray-700/50">
             <div className="mr-3 mt-0.5">
               {getCategoryIcon(activeTab)}
             </div>
@@ -141,72 +141,39 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
             </div>
           </div>
         )}
-        
-        {/* Display recommendations */}
-        {filteredRecommendations.length === 0 ? (
-          <div className="py-8">
-            {/* First-time user experience or educational content */}
-            {activeTab === 'all' ? (
-              <div>
-                <div className="text-center mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Personalized Recommendations</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                    As you add more assets to your portfolio, we'll provide tailored recommendations to optimize your fixed income investments.
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-                  {Object.entries(categories).slice(0, 4).map(([key, category]) => (
-                    <div key={key} className="bg-white dark:bg-gray-800 rounded p-4 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                      <div className="flex items-center mb-3">
-                        <span className="text-xl mr-2">{category.icon}</span>
-                        <h3 className="font-medium text-gray-900 dark:text-white">{category.name}</h3>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{category.description}</p>
-                      <button
-                        onClick={() => setActiveTab(key)}
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
-                      >
-                        Learn more →
-                      </button>
-                    </div>
-                  ))}
-                </div>
+        {/* Empty state */}
+        {recommendations.length === 0 && (
+          <div className="flex flex-col items-center text-center py-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 mb-4">
+              {categories[activeTab]?.icon || '📋'}
+            </div>
+            <h4 className="text-gray-900 dark:text-white font-medium mb-1">
+              No {activeTab} recommendations
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm">
+              {activeTab === 'rollover' && "We'll suggest options when your assets approach maturity."}
+              {activeTab === 'diversification' && "Add more assets to receive portfolio balance suggestions."}
+              {activeTab === 'laddering' && "Laddering strategies will appear as you add more bonds."}
+              {activeTab === 'liquidity' && "Add upcoming liquidity needs to get personalized recommendations."}
+              {activeTab === 'currency' && "Add assets with different currencies to see currency management strategies."}
+              {activeTab === 'regional' && "Add assets from different regions to see regional diversification tips."}
+              {activeTab === 'yield' && "Add more assets to receive personalized yield optimization suggestions."}
+              {activeTab === 'all' && "Add more assets to your portfolio to receive tailored recommendations."}
+            </p>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 w-full border border-gray-100 dark:border-gray-700/50">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Get started by adding assets to your portfolio to receive tailored recommendations.
               </div>
-            ) : (
-              <div className="flex flex-col items-center text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 mb-4">
-                  {categories[activeTab]?.icon || '📋'}
-                </div>
-                <h4 className="text-gray-900 dark:text-white font-medium mb-1">
-                  No {activeTab} recommendations
-                </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-sm">
-                  {activeTab === 'rollover' && "We'll suggest options when your assets approach maturity."}
-                  {activeTab === 'diversification' && "Add more assets to receive portfolio balance suggestions."}
-                  {activeTab === 'laddering' && "Laddering strategies will appear as you add more bonds."}
-                  {activeTab === 'liquidity' && "Add upcoming liquidity needs to get personalized recommendations."}
-                  {activeTab === 'currency' && "Add assets with different currencies to see currency management strategies."}
-                  {activeTab === 'regional' && "Add assets from different regions to see regional diversification tips."}
-                  {activeTab === 'yield' && "Add more assets to receive personalized yield optimization suggestions."}
-                </p>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded p-4 w-full">
-                  <RegionalEducationalContent category={activeTab} userRegion={userRegion} risk={user.risk_tolerance} />
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        ) : (
-          <div className="space-y-4">
+        )}
+        {/* Recommendations list */}
+        {recommendations.length > 0 && (
+          <div className="space-y-3">
             {filteredRecommendations.map((rec, index) => (
               <div 
                 key={index} 
-                className="bg-white dark:bg-gray-800 rounded p-5 shadow-sm border-l-4 border border-gray-100 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border-l-4 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
                 style={{ borderLeftColor: rec.category === 'rollover' ? '#60a5fa' : 
                                         rec.category === 'diversification' ? '#818cf8' :
                                         rec.category === 'laddering' ? '#fbbf24' :
@@ -216,17 +183,17 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
                                         rec.category === 'yield' ? '#f43f5e' : '#9ca3af' }}
               >
                 <div className="flex items-start">
-                  <div className="mr-4">
+                  <div className="mr-3 flex-shrink-0">
                     {getCategoryIcon(rec.category)}
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">{rec.title}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{rec.description}</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">{rec.title}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{rec.description}</p>
                     
                     {rec.actionItems && rec.actionItems.length > 0 && (
                       <ul className="space-y-2 mb-3">
                         {rec.actionItems.map((item: string, i: number) => (
-                          <li key={i} className="text-sm flex items-start bg-gray-50 dark:bg-gray-700/30 p-2 rounded">
+                          <li key={i} className="text-sm flex items-start bg-gray-50 dark:bg-gray-700/30 p-2 rounded-md">
                             <span className="text-indigo-500 dark:text-indigo-400 mr-2 mt-0.5">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -261,8 +228,8 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
       
       {/* Educational content based on user's region and risk profile */}
       {recommendations.length > 0 && (
-        <div className="px-6 pt-5 pb-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-          <h3 className="text-sm font-medium text-gray-800 dark:text-gray-300 mb-3">
+        <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-800 dark:text-gray-300 mb-2 px-4">
             <div className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -270,7 +237,9 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
               Fixed Income Insights for {user.risk_tolerance.charAt(0).toUpperCase() + user.risk_tolerance.slice(1)} Investors
             </div>
           </h3>
-          <RegionalEducationalContent category="general" userRegion={userRegion} risk={user.risk_tolerance} />
+          <div className="px-4 pb-4">
+            <RegionalEducationalContent category="general" userRegion={userRegion} risk={user.risk_tolerance} />
+          </div>
         </div>
       )}
     </div>
@@ -515,8 +484,8 @@ function RegionalEducationalContent({
     );
   }
   
-  // Default general content
-  return (
+   // Default general content
+   return (
     <div className="text-sm text-gray-700 dark:text-gray-300">
       {userRegion === 'eurozone' ? (
         <div className="space-y-2">
