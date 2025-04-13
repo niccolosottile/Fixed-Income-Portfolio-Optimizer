@@ -96,17 +96,6 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const handleAssetAdded = (newAsset: FixedIncomeAsset) => {
-    const updatedAssets = [...assets, newAsset];
-    setAssets(updatedAssets);
-    
-    // Regenerate recommendations when an asset is added
-    if (user) {
-      const updatedRecommendations = generateRecommendations(user, updatedAssets, liquidityEvents);
-      setRecommendations(updatedRecommendations);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -692,7 +681,7 @@ function getApproximateRate(
     }
     // Fallback to global government bond rates if the specific combination isn't found
     return ratesDb.global.governmentBond[term];
-  } catch (e) {
+  } catch {
     // Ultimate fallback 
     return term === 'short' ? 3.0 : term === 'medium' ? 3.5 : 4.0;
   }

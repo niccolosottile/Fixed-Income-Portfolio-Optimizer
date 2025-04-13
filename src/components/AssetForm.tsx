@@ -1,7 +1,6 @@
 'use client';
 import { useState } from 'react';
 import { FixedIncomeAsset } from '@/types';
-import axios from 'axios';
 
 interface AssetFormProps {
   userId: string;
@@ -492,7 +491,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                 >
                   <option value="none">None</option>
                   <option value="S&P">S&P</option>
-                  <option value="Moodys">Moody's</option>
+                  <option value="Moodys">Moody&apos;s</option>
                   <option value="Fitch">Fitch</option>
                   <option value="DBRS">DBRS</option>
                   <option value="other">Other</option>

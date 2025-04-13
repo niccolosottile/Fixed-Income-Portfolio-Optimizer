@@ -1,6 +1,6 @@
 'use client';
 import { FixedIncomeAsset, User } from '@/types';
-import { Pie, Doughnut } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, Title } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend, Title);
@@ -266,9 +266,9 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
         padding: 12,
         boxPadding: 6,
         callbacks: {
-          label: function(context: any) {
-            const label = context.label || '';
-            const value = context.raw;
+          label: function(tooltipItem: any) {
+            const label = tooltipItem.label || '';
+            const value = tooltipItem.raw;
             const percentage = (value / metrics.totalValue * 100).toFixed(1);
             return `${label}: ${formatCurrency(value)} (${percentage}%)`;
           }

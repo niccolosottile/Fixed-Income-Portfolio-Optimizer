@@ -55,8 +55,9 @@ export default function Auth() {
         setPassword('');
         setName('');
       }
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during sign up');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during sign up';
+      setError(errorMessage);
       console.error('Signup error:', error);
     } finally {
       setLoading(false);
@@ -79,9 +80,10 @@ export default function Auth() {
       // Successful login
       console.log('Successfully logged in:', data);
       router.push('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      setError(error.message || 'Invalid login credentials');
+      const errorMessage = error instanceof Error ? error.message : 'Invalid login credentials';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

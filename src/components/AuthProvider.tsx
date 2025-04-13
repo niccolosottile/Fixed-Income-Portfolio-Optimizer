@@ -1,63 +1,96 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { useRouter, usePathname } from 'next/navigation';
 
-const AuthContext = createContext<any>(null);
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+};
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
+    // Check for active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        getUserProfile(session.user.id);
+      } else {
+        setLoading(false);
       }
-      
-      setUser(data?.session?.user || null);
-      setLoading(false);
-      
-      // Setup auth listener
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          setUser(session?.user || null);
-          
-          if (event === 'SIGNED_OUT') {
-            router.push('/auth');
-          }
+    });
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session && event === 'SIGNED_IN') {
+          await getUserProfile(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
         }
-      );
-      
-      return () => {
-        authListener.subscription.unsubscribe();
-      };
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
     };
+  }, []);
 
-    getSession();
-  }, [router]);
+  async function getUserProfile(userId: string) {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !user && pathname !== '/auth') {
-      router.push('/auth');
+      if (error) throw error;
+      
+      setUser(data);
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [loading, user, pathname, router]);
+  }
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      return { error };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('An unknown error occurred') };
+    }
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {!loading && (
-        <>
-          {(user || pathname === '/auth') ? children : null}
-        </>
-      )}
+    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+      {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
