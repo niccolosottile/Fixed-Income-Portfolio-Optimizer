@@ -1,5 +1,4 @@
 'use client';
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -7,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 type AuthContextType = {
   user: User | null;
   loading: boolean;
+  error: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 };
@@ -16,72 +16,157 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
-  useEffect(() => {
-    // Check for active session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        getUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session && event === 'SIGNED_IN') {
-          await getUserProfile(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
+  // Function to get user profile
   async function getUserProfile(userId: string) {
     try {
-      setLoading(true);
-      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
-      
+      if (error) {
+        throw error;
+      }
+
       setUser(data);
+      setError(null);
+      return data;
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      setError('Failed to load user profile');
+      setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
   }
 
+  // Initialize auth on component mount
+  useEffect(() => {
+    if (authInitialized) return;
+
+    setLoading(true);
+    setError(null);
+
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          if (isMounted) {
+            setError('Failed to retrieve session');
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user && isMounted) {
+          await getUserProfile(session.user.id);
+        } else if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setError('Authentication system failed to initialize');
+          setLoading(false);
+        }
+      } finally {
+        if (isMounted) {
+          setAuthInitialized(true);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Set up auth state listener
+  useEffect(() => {
+    if (!authInitialized) return;
+
+    let isMounted = true;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!isMounted) return;
+
+        if (event === 'SIGNED_IN' && session) {
+          if (!user || user.id !== session.user.id) {
+            setLoading(true);
+            await getUserProfile(session.user.id);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setLoading(true);
+          await getUserProfile(session.user.id);
+        } else if (event === 'USER_UPDATED' && session) {
+          setLoading(true);
+          await getUserProfile(session.user.id);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [authInitialized, user]);
+
+  // Sign in function
   const signIn = async (email: string, password: string) => {
     try {
+      setLoading(true);
+      setError(null);
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-      
-      return { error };
+
+      if (error) throw error;
+
+      return { error: null };
     } catch (error) {
+      setLoading(false);
       return { error: error instanceof Error ? error : new Error('An unknown error occurred') };
     }
   };
 
+  // Sign out function
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      setUser(null);
+    } catch (error) {
+      setError('Failed to sign out');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      error,
+      signIn,
+      signOut
+    }}>
       {children}
     </AuthContext.Provider>
   );

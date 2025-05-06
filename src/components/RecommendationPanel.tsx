@@ -19,7 +19,7 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
   // The user's country or default to global
   const userRegion = user?.country || 'global';
   
-  // Define recommendation categories - expanded for global investors
+  // Define recommendation categories
   const categories: Record<string, RecommendationCategory> = {
     rollover: {
       name: 'Rollover',
@@ -88,12 +88,12 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
   };
   
   return (
-    <div className="h-full flex flex-col">
-      <div className="border-b border-gray-100 dark:border-gray-700 mb-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-none border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Recommendations</h2>
         
         {/* Tabs for recommendation categories */}
-        <div className="flex overflow-x-auto hide-scrollbar -mx-1 mb-4">
+        <div className="flex overflow-x-auto hide-scrollbar -mx-1">
           <div className="flex space-x-2 px-1 min-w-full">
             <button
               onClick={() => setActiveTab('all')}
@@ -124,10 +124,10 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+      <div className="component-scrollable-content pt-4 pl-2 pr-2">
         {/* Show description for selected category */}
         {activeTab !== 'all' && (
-          <div className="bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-lg mb-4 flex items-start border border-gray-100 dark:border-gray-700/50">
+          <div className="bg-slate-200/70 dark:bg-gray-800/30 p-3 rounded-lg mb-4 flex items-start">
             <div className="mr-3 mt-0.5">
               {getCategoryIcon(activeTab)}
             </div>
@@ -141,10 +141,11 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
             </div>
           </div>
         )}
+
         {/* Empty state */}
         {recommendations.length === 0 && (
-          <div className="flex flex-col items-center text-center py-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 mb-4">
+          <div className="flex flex-col items-center text-center py-12">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 mb-4">
               {categories[activeTab]?.icon || '📋'}
             </div>
             <h4 className="text-gray-900 dark:text-white font-medium mb-1">
@@ -158,22 +159,22 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
               {activeTab === 'currency' && "Add assets with different currencies to see currency management strategies."}
               {activeTab === 'regional' && "Add assets from different regions to see regional diversification tips."}
               {activeTab === 'yield' && "Add more assets to receive personalized yield optimization suggestions."}
-              {activeTab === 'all' && "Add more assets to your portfolio to receive tailored recommendations."}
             </p>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 w-full border border-gray-100 dark:border-gray-700/50">
+            <div className="bg-slate-200 dark:bg-gray-800/50 rounded-lg p-4 w-full">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                Get started by adding assets to your portfolio to receive tailored recommendations.
+                Get started by adding more assets to your portfolio to receive tailored recommendations.
               </div>
             </div>
           </div>
         )}
+
         {/* Recommendations list */}
         {recommendations.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-4 pr-1 mb-6">
             {filteredRecommendations.map((rec, index) => (
               <div 
                 key={index} 
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border-l-4 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
+                className="bg-slate-100 dark:bg-gray-800 rounded-lg p-4 shadow-sm border-l-4 hover:shadow-md transition-shadow"
                 style={{ borderLeftColor: rec.category === 'rollover' ? '#60a5fa' : 
                                         rec.category === 'diversification' ? '#818cf8' :
                                         rec.category === 'laddering' ? '#fbbf24' :
@@ -183,17 +184,17 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
                                         rec.category === 'yield' ? '#f43f5e' : '#9ca3af' }}
               >
                 <div className="flex items-start">
-                  <div className="mr-3 flex-shrink-0">
+                  <div className="mr-3">
                     {getCategoryIcon(rec.category)}
                   </div>
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900 dark:text-white mb-2">{rec.title}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{rec.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{rec.description}</p>
                     
                     {rec.actionItems && rec.actionItems.length > 0 && (
-                      <ul className="space-y-2 mb-3">
+                      <ul className="space-y-2 mb-4">
                         {rec.actionItems.map((item: string, i: number) => (
-                          <li key={i} className="text-sm flex items-start bg-gray-50 dark:bg-gray-700/30 p-2 rounded-md">
+                          <li key={i} className="text-sm flex items-start bg-slate-200/70 dark:bg-gray-700/30 p-2 rounded-md">
                             <span className="text-indigo-500 dark:text-indigo-400 mr-2 mt-0.5">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -224,24 +225,24 @@ export default function RecommendationPanel({ recommendations, user }: Recommend
             ))}
           </div>
         )}
-      </div>
-      
-      {/* Educational content based on user's region and risk profile */}
-      {recommendations.length > 0 && (
-        <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-800 dark:text-gray-300 mb-2 px-4">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Fixed Income Insights for {user.risk_tolerance.charAt(0).toUpperCase() + user.risk_tolerance.slice(1)} Investors
+        
+        {/* Educational content based on user's region and risk profile */}
+        {recommendations.length > 0 && (
+          <div className="pt-4 pb-5 mt-6 border-t border-gray-200 dark:border-gray-700 bg-slate-200/70 dark:bg-gray-800/50 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-800 dark:text-gray-300 mb-3 px-4">
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Fixed Income Insights for {user.risk_tolerance.charAt(0).toUpperCase() + user.risk_tolerance.slice(1)} Investors
+              </div>
+            </h3>
+            <div className="px-4">
+              <RegionalEducationalContent category="general" userRegion={userRegion} risk={user.risk_tolerance} />
             </div>
-          </h3>
-          <div className="px-4 pb-4">
-            <RegionalEducationalContent category="general" userRegion={userRegion} risk={user.risk_tolerance} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -484,8 +485,8 @@ function RegionalEducationalContent({
     );
   }
   
-   // Default general content
-   return (
+  // Default general content
+  return (
     <div className="text-sm text-gray-700 dark:text-gray-300">
       {userRegion === 'eurozone' ? (
         <div className="space-y-2">

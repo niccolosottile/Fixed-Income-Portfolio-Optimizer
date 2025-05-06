@@ -1,189 +1,243 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { FixedIncomeAsset, LiquidityEvent, User, Recommendation } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
+import { FixedIncomeAsset, LiquidityEvent, User, Recommendation, CurrencyCode } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/AuthProvider';
 import AssetTable from '../components/AssetTable';
 import LiquidityTimeline from '../components/LiquidityTimeline';
 import RecommendationPanel from '../components/RecommendationPanel';
 import PortfolioSummary from '../components/PortfolioSummary';
+import Navbar from '../components/Navbar';
 import { addMonths, differenceInMonths, format } from 'date-fns';
+import { formatCurrency, getMarketValue, getTotalMarketValue, calculateYTM } from '@/lib/utils';
 
 export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user: authUser, loading: authLoading, error: authError } = useAuth();
   const [assets, setAssets] = useState<FixedIncomeAsset[]>([]);
   const [liquidityEvents, setLiquidityEvents] = useState<LiquidityEvent[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get the authenticated user session
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (!authUser) {
-          throw new Error('Not authenticated');
-        }
-        
-        // Fetch user profile
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-          
-        if (userError) throw userError;
-        
-        // If user doesn't have currency or country, set defaults
-        const userWithDefaults = {
-          ...userData,
-          currency: userData.currency || 'EUR',
-          country: userData.country || 'eurozone'
-        };
-        
-        setUser(userWithDefaults);
-        
-        // Fetch assets
-        const { data: assetsData, error: assetsError } = await supabase
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Main data fetching function
+  const fetchDashboardData = useCallback(async () => {
+    if (!authUser?.id) return;
+    
+    try {
+      setLoading(true);
+      
+      const [assetsResponse, eventsResponse] = await Promise.all([
+        supabase
           .from('fixed_income_assets')
           .select('*')
-          .eq('user_id', authUser.id);
+          .eq('user_id', authUser.id),
           
-        if (assetsError) throw assetsError;
-        
-        // Add currency/region defaults to any assets that might lack them
-        const assetsWithDefaults = (assetsData || []).map(asset => ({
-          ...asset,
-          currency: asset.currency || userWithDefaults.currency,
-          region: asset.region || userWithDefaults.country
-        }));
-        
-        setAssets(assetsWithDefaults);
-        
-        // Fetch liquidity events
-        const { data: eventsData, error: eventsError } = await supabase
+        supabase
           .from('liquidity_events')
           .select('*')
-          .eq('user_id', authUser.id);
-          
-        if (eventsError) throw eventsError;
+          .eq('user_id', authUser.id)
+      ]);
+      
+      // Check for errors
+      if (assetsResponse.error) throw assetsResponse.error;
+      if (eventsResponse.error) throw eventsResponse.error;
+      
+      // Process assets - add defaults
+      const assetsWithDefaults = (assetsResponse.data || []).map(asset => ({
+        ...asset,
+        currency: asset.currency || authUser.currency || 'EUR',
+        region: asset.region || authUser.country || 'eurozone'
+      }));
+      
+      // Process liquidity events - add defaults
+      const eventsWithDefaults = (eventsResponse.data || []).map(event => ({
+        ...event,
+        currency: event.currency || authUser.currency || 'EUR'
+      }));
+      
+      // Update state
+      setAssets(assetsWithDefaults);
+      setLiquidityEvents(eventsWithDefaults);
+      
+      // Generate recommendations after data is ready
+      if (authUser && assetsWithDefaults) {
+        const generatedRecommendations = generateRecommendations(
+          authUser,
+          assetsWithDefaults,
+          eventsWithDefaults
+        );
         
-        // Add currency defaults to any liquidity events that might lack them
-        const eventsWithDefaults = (eventsData || []).map(event => ({
-          ...event,
-          currency: event.currency || userWithDefaults.currency
-        }));
-        
-        setLiquidityEvents(eventsWithDefaults);
-        
-        // Generate recommendations based on fetched data
-        if (userWithDefaults && assetsWithDefaults) {
-          const generatedRecommendations = generateRecommendations(
-            userWithDefaults,
-            assetsWithDefaults,
-            eventsWithDefaults
-          );
-          setRecommendations(generatedRecommendations);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
+        setRecommendations(generatedRecommendations);
       }
-    };
-    
-    fetchData();
+      
+      // Clear any previous errors
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [authUser]);
+
+  // Redirect to login page
+  const handleManualAuth = useCallback(() => {
+    window.location.href = '/auth';
   }, []);
 
-  if (loading) {
+  // Fetch data when authentication is complete
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      fetchDashboardData();
+    }
+  }, [authUser, authLoading, fetchDashboardData]);
+
+  // Combined loading state
+  const isLoading = authLoading || loading;
+
+  // Handle loading state
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-850">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="h-12 w-12 bg-indigo-500 rounded-full animate-spin mb-4 opacity-75"></div>
+          <div className="h-12 w-12 bg-indigo-500 rounded-full mb-4 opacity-75"></div>
           <p className="text-gray-600 dark:text-gray-300 font-medium">Loading your portfolio data...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
+  // Handle auth error state
+  if (authError) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen gap-4 px-4">
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4 px-4 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-850">
         <div className="bg-white dark:bg-gray-800 rounded shadow-lg p-8 text-center max-w-md w-full">
-          <div className="bg-red-100 text-red-800 p-4 rounded mb-6">
+          <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 p-4 rounded mb-6">
             <h2 className="font-bold text-lg mb-2">Authentication Error</h2>
-            <p>Unable to retrieve user data. Please log in again.</p>
+            <p>{authError}</p>
           </div>
-          <button 
-            onClick={() => window.location.href = '/auth'} 
-            className="btn-primary w-full"
-          >
-            Go to Login
-          </button>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={handleManualAuth} 
+              className="btn-primary w-full py-2 px-4 bg-indigo-600 text-white rounded-md font-medium"
+            >
+              Go to Login
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <main className="dashboard-layout">
-      {/* Dashboard Header */}
-      <header className="dashboard-header mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Investment Portfolio
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage and optimize your fixed income investments
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="text-sm text-right">
-            <div className="text-gray-500 dark:text-gray-400">Welcome,</div>
-            <div className="font-medium">{user.name || user.email}</div>
+  // Handle data loading error
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4 px-4 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-850">
+        <div className="bg-white dark:bg-gray-800 rounded shadow-lg p-8 text-center max-w-md w-full">
+          <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 p-4 rounded mb-6">
+            <h2 className="font-bold text-lg mb-2">Error Loading Data</h2>
+            <p>{error}</p>
           </div>
-        </div>
-      </header>
-      
-      {/* Puzzle Layout */}
-      <div className="puzzle-layout">
-        {/* Portfolio Summary - Large Width, Top Left */}
-        <div className="puzzle-item col-span-12 md:col-span-7">
-          <div className="puzzle-item-content">
-            <PortfolioSummary assets={assets} user={user} />
-          </div>
-        </div>
-        
-        {/* Liquidity Timeline - Normal Width, Top Right */}
-        <div className="puzzle-item col-span-12 md:col-span-5">
-          <div className="puzzle-item-content">
-            <LiquidityTimeline events={liquidityEvents} assets={assets} />
-          </div>
-        </div>
-        
-        {/* Asset Table - Large Width, Bottom Left, Taller */}
-        <div className="puzzle-item puzzle-item-wide">
-          <div className="puzzle-item-content">
-            <AssetTable assets={assets} setAssets={setAssets} user={user} />
-          </div>
-        </div>
-        
-        {/* Recommendation Panel - Normal Width, Bottom Right, Now Taller */}
-        <div className="puzzle-item puzzle-item-normal">
-          <div className="puzzle-item-content">
-            <RecommendationPanel recommendations={recommendations} user={user} />
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={fetchDashboardData} 
+              className="btn-primary w-full py-2 px-4 bg-indigo-600 text-white rounded-md font-medium"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>
-    </main>
+    );
+  }
+
+  // Handle case with no authenticated user
+  if (!authUser) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4 px-4 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-850">
+        <div className="bg-white dark:bg-gray-800 rounded shadow-lg p-8 text-center max-w-md w-full">
+          <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 p-4 rounded mb-6">
+            <h2 className="font-bold text-lg mb-2">Authentication Required</h2>
+            <p>Please log in to view your portfolio dashboard.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={handleManualAuth} 
+              className="btn-primary w-full py-2 px-4 bg-indigo-600 text-white rounded-md font-medium"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal dashboard render with data
+  return (
+    <>
+      <Navbar user={authUser} />
+      <main className="dashboard-layout pt-20">
+        {/* Dashboard Header */}
+        <header className="dashboard-header mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Investment Portfolio
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              Manage and optimize your fixed income investments
+            </p>
+          </div>
+        </header>
+
+        {/* Puzzle Layout */}
+        <div className="grid grid-cols-12 gap-6">
+          {/* First row - Summary and Timeline */}
+          <div className="col-span-12 md:col-span-7">
+            <div className="puzzle-item">
+              <div className="puzzle-item-content">
+                <PortfolioSummary assets={assets} user={authUser} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-span-12 md:col-span-5">
+            <div className="puzzle-item h-[500px]">
+              <div className="puzzle-item-content">
+                <LiquidityTimeline events={liquidityEvents} assets={assets} />
+              </div>
+            </div>
+          </div>
+
+          {/* Second row - Asset Table and Recommendations */}
+          <div className="col-span-12 md:col-span-8">
+            <div className="puzzle-item h-[550px]">
+              <div className="puzzle-item-content">
+                <AssetTable
+                  assets={assets}
+                  setAssets={setAssets}
+                  user={authUser}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-span-12 md:col-span-4">
+            <div className="puzzle-item h-[550px]">
+              <div className="puzzle-item-content">
+                <RecommendationPanel recommendations={recommendations} user={authUser} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
   );
 }
 
-// Advanced recommendation generator
+// Advanced recommendation generator function
 function generateRecommendations(
-  user: User, 
-  assets: FixedIncomeAsset[], 
+  user: User,
+  assets: FixedIncomeAsset[],
   events: LiquidityEvent[]
 ): Recommendation[] {
   const recommendations: Recommendation[] = [];
@@ -207,7 +261,6 @@ function generateRecommendations(
   
   if (soonMaturingAssets.length > 0) {
     // Get current approximate market rates based on asset type, term, and region
-    // In a production app, this would call a market data API
     const approximateRates: Record<string, Record<string, Record<string, number>>> = {
       'eurozone': {
         'governmentBond': { short: 2.8, medium: 3.1, long: 3.5 },
@@ -260,13 +313,16 @@ function generateRecommendations(
       
       const hasLiquidityNeeds = liquidityNeeds > 0;
       
+      // Use market value instead of face value
+      const assetMarketValue = getMarketValue(asset);
+      
       // Suggest different options based on profile and needs
-      if (hasLiquidityNeeds && asset.face_value >= liquidityNeeds) {
-        rolloverOptions.push(`Keep ${formatCurrency(liquidityNeeds, asset.currency)} liquid for upcoming expenses`);
+      if (hasLiquidityNeeds && assetMarketValue >= liquidityNeeds) {
+        rolloverOptions.push(`Keep ${formatCurrency(liquidityNeeds, asset.currency as CurrencyCode)} liquid for upcoming expenses`);
         
-        if (asset.face_value > liquidityNeeds) {
-          const remainder = asset.face_value - liquidityNeeds;
-          rolloverOptions.push(`Reinvest ${formatCurrency(remainder, asset.currency)} in a new fixed income asset`);
+        if (assetMarketValue > liquidityNeeds) {
+          const remainder = assetMarketValue - liquidityNeeds;
+          rolloverOptions.push(`Reinvest ${formatCurrency(remainder, asset.currency as CurrencyCode)} in a new fixed income asset`);
         }
       } else {
         // Default to asset type or find a similar one
@@ -303,7 +359,7 @@ function generateRecommendations(
       recommendations.push({
         category: 'rollover',
         title: `${asset.name} matures in ${daysToMaturity} days`,
-        description: `Your ${formatCurrency(asset.face_value, asset.currency)} ${asset.type} will mature soon. Consider these reinvestment options:`,
+        description: `Your ${formatCurrency(assetMarketValue, asset.currency as CurrencyCode)} ${asset.type} will mature soon. Consider these reinvestment options:`,
         actionItems: rolloverOptions,
         region: asset.region
       });
@@ -321,7 +377,7 @@ function generateRecommendations(
       other: ['other']
     };
     
-    // Calculate asset distribution by group
+    // Calculate asset distribution by group using market value
     const assetTypeDistribution: Record<string, number> = {
       government: 0,
       corporate: 0,
@@ -330,13 +386,17 @@ function generateRecommendations(
       other: 0
     };
     
-    // Also track regional and currency distribution
+    // Also track regional and currency distribution using market value
     const regionDistribution: Record<string, number> = {};
     const currencyDistribution: Record<string, number> = {};
     
-    let totalPortfolioValue = 0;
+    // Use market value for calculations instead of face value
+    const totalPortfolioValue = getTotalMarketValue(assets);
     
     assets.forEach(asset => {
+      // Get the market value of the asset
+      const marketValue = getMarketValue(asset);
+      
       // Map asset to group
       let group = 'other';
       for (const [groupName, types] of Object.entries(assetGroups)) {
@@ -345,15 +405,13 @@ function generateRecommendations(
           break;
         }
       }
-      assetTypeDistribution[group] += asset.face_value;
+      assetTypeDistribution[group] += marketValue;
       
       // Track region
-      regionDistribution[asset.region] = (regionDistribution[asset.region] || 0) + asset.face_value;
+      regionDistribution[asset.region] = (regionDistribution[asset.region] || 0) + marketValue;
       
       // Track currency
-      currencyDistribution[asset.currency] = (currencyDistribution[asset.currency] || 0) + asset.face_value;
-      
-      totalPortfolioValue += asset.face_value;
+      currencyDistribution[asset.currency] = (currencyDistribution[asset.currency] || 0) + marketValue;
     });
     
     // Calculate percentages
@@ -549,102 +607,198 @@ function generateRecommendations(
   }
   
   // 4. LIQUIDITY PLANNING RECOMMENDATIONS
-  // Check if there's a significant upcoming liquidity event not covered by maturing assets
   if (events.length > 0) {
-    // Group events by quarter (next 4 quarters)
-    const liquidityByQuarter: Record<string, number> = {};
-    const maturityByQuarter: Record<string, number> = {};
+    // Track liquidity needs and available funds by month for the next 24 months
+    // This provides a more granular view than quarterly analysis
+    const liquidityByMonth: Record<string, { needs: number; maturities: number; date: Date }> = {};
     
-    // Initialize quarters
-    for (let i = 0; i < 4; i++) {
-      const quarterStart = addMonths(today, i * 3);
-      const quarterKey = format(quarterStart, "yyyy-QQQ");
-      liquidityByQuarter[quarterKey] = 0;
-      maturityByQuarter[quarterKey] = 0;
+    // Initialize monthly tracking for next 24 months
+    for (let i = 0; i < 24; i++) {
+      const monthDate = addMonths(today, i);
+      const monthKey = format(monthDate, "yyyy-MM");
+      liquidityByMonth[monthKey] = {
+        needs: 0,
+        maturities: 0,
+        date: monthDate
+      };
     }
     
-    // Calculate liquidity needs by quarter
+    // Calculate liquidity needs by month
     events.forEach(event => {
       const eventDate = new Date(event.date);
       if (eventDate < today) return;
       
-      const quarterDiff = Math.floor(differenceInMonths(eventDate, today) / 3);
-      if (quarterDiff >= 4) return; // Only consider next 4 quarters
+      const monthDiff = differenceInMonths(eventDate, today);
+      if (monthDiff >= 24) return; // Only consider next 24 months
       
-      const quarterStart = addMonths(today, quarterDiff * 3);
-      const quarterKey = format(quarterStart, "yyyy-QQQ");
-      
-      liquidityByQuarter[quarterKey] += event.amount;
+      const monthKey = format(eventDate, "yyyy-MM");
+      if (liquidityByMonth[monthKey] && event.currency === userCurrency) {
+        liquidityByMonth[monthKey].needs += event.amount;
+      }
     });
     
-    // Calculate asset maturities by quarter (only for matching currency)
+    // Calculate asset maturities by month - use face value for maturity proceeds
     assets.forEach(asset => {
-      // Skip perpetual bonds
+      // Skip perpetual bonds since they don't mature
       if (asset.type === 'perpetualBond') return;
       
       const maturityDate = new Date(asset.maturity_date);
       if (maturityDate < today) return;
       
-      const quarterDiff = Math.floor(differenceInMonths(maturityDate, today) / 3);
-      if (quarterDiff >= 4) return; // Only consider next 4 quarters
+      const monthDiff = differenceInMonths(maturityDate, today);
+      if (monthDiff >= 24) return; // Only consider next 24 months
       
-      const quarterStart = addMonths(today, quarterDiff * 3);
-      const quarterKey = format(quarterStart, "yyyy-QQQ");
-      
-      // Only count if currency matches the user's preferred currency
-      if (asset.currency === userCurrency) {
-        maturityByQuarter[quarterKey] += asset.face_value;
+      const monthKey = format(maturityDate, "yyyy-MM");
+      if (liquidityByMonth[monthKey] && asset.currency === userCurrency) {
+        // Use face_value for maturities - this is what an investor receives at maturity
+        liquidityByMonth[monthKey].maturities += asset.face_value;
       }
     });
     
-    // Find quarters with liquidity gaps
-    const liquidityGaps: string[] = [];
+    // Track cumulative liquidity position - how cash flows accumulate over time
+    let cumulativePosition = 0;
+    const shortfallMonths: string[] = [];
+    const surplusMonths: string[] = [];
+    const criticalShortfalls: string[] = [];
     
-    Object.entries(liquidityByQuarter).forEach(([quarter, amount]) => {
-      if (amount === 0) return; // Skip quarters with no expenses
+    // Sort months chronologically
+    const sortedMonths = Object.keys(liquidityByMonth).sort();
+    
+    sortedMonths.forEach(month => {
+      const { needs, maturities, date } = liquidityByMonth[month];
+      const monthlyNetFlow = maturities - needs;
+      cumulativePosition += monthlyNetFlow;
       
-      const maturingAmount = maturityByQuarter[quarter] || 0;
-      const gap = maturingAmount - amount;
-      
-      if (gap < 0) {
-        // There's a liquidity gap in this quarter
-        liquidityGaps.push(`${quarter}: ${formatCurrency(Math.abs(gap), userCurrency)} shortfall`);
+      // Track months with significant shortfalls/surpluses
+      if (needs > 0) {
+        if (maturities < needs) {
+          shortfallMonths.push(`${format(date, "MMM yyyy")}: ${formatCurrency(needs - maturities, userCurrency as CurrencyCode)} shortfall`);
+          
+          // Critical if shortfall is significant (>20% of total need) AND cumulative position is negative
+          if ((needs - maturities) > needs * 0.2 && cumulativePosition < 0) {
+            criticalShortfalls.push(format(date, "MMM yyyy"));
+          }
+        } else if (maturities > needs * 1.5) {
+          surplusMonths.push(`${format(date, "MMM yyyy")}: ${formatCurrency(maturities - needs, userCurrency as CurrencyCode)} surplus`);
+        }
       }
     });
     
-    if (liquidityGaps.length > 0) {
+    // Identify assets that could potentially be sold before maturity to cover shortfalls
+    // For pre-maturity sales, we need to use market value instead of face value
+    const assetsAvailableForSale: { asset: FixedIncomeAsset; marketValue: number }[] = [];
+    
+    if (criticalShortfalls.length > 0) {
+      // Find the earliest critical shortfall date
+      const earliestCriticalDate = new Date(criticalShortfalls[0] + "-01");
+      
+      assets.forEach(asset => {
+        if (asset.type === 'perpetualBond') {
+          // Perpetual bonds can be sold at market value anytime
+          assetsAvailableForSale.push({
+            asset, 
+            marketValue: getMarketValue(asset)
+          });
+        } else {
+          const maturityDate = new Date(asset.maturity_date);
+          
+          // Only consider assets that mature AFTER our earliest critical shortfall
+          // These are assets we might need to sell early to cover the shortfall
+          if (maturityDate > earliestCriticalDate && asset.currency === userCurrency) {
+            assetsAvailableForSale.push({
+              asset,
+              marketValue: getMarketValue(asset)
+            });
+          }
+        }
+      });
+    }
+    
+    // Generate liquidity recommendations
+    if (shortfallMonths.length > 0) {
       const liquidityActions = [];
       
-      if (liquidityGaps.length === 1) {
-        liquidityActions.push(`Adjust your ladder to align a maturity with your ${liquidityGaps[0]} expense`);
-      } else {
-        liquidityActions.push(`Adjust your maturities to cover upcoming expenses: ${liquidityGaps.join(', ')}`);
+      // Add shortfall warnings
+      if (criticalShortfalls.length > 0) {
+        liquidityActions.push(`Critical liquidity gaps detected in: ${criticalShortfalls.join(', ')}`);
       }
       
-      // Suggest money market or short-term assets for better liquidity
-      liquidityActions.push('Consider allocating funds to money market accounts for immediate liquidity needs');
+      // Show significant shortfalls (limited to top 3 to avoid overwhelming)
+      if (shortfallMonths.length > 0) {
+        liquidityActions.push(`Upcoming liquidity gaps: ${shortfallMonths.slice(0, 3).join(', ')}${shortfallMonths.length > 3 ? ` and ${shortfallMonths.length - 3} more` : ''}`);
+      }
+      
+      // Calculate total potential liquidity from sellable assets
+      const totalSellableValue = assetsAvailableForSale.reduce((sum, item) => sum + item.marketValue, 0);
+      
+      if (totalSellableValue > 0) {
+        liquidityActions.push(`You have ${formatCurrency(totalSellableValue, userCurrency as CurrencyCode)} in assets that could be sold to meet liquidity needs`);
+        
+        // Suggest specific assets that could be sold (if there are critical shortfalls)
+        if (criticalShortfalls.length > 0 && assetsAvailableForSale.length > 0) {
+          // Sort assets by smallest premium/largest discount to face value 
+          // (prioritize selling assets closest to or below par)
+          const sortedAssets = [...assetsAvailableForSale].sort((a, b) => {
+            const premiumA = a.marketValue / a.asset.face_value - 1;
+            const premiumB = b.marketValue / b.asset.face_value - 1;
+            return premiumA - premiumB; // Smallest premium/largest discount first
+          });
+          
+          // Suggest the most optimal assets to sell
+          const bestAssetToSell = sortedAssets[0];
+          const premium = bestAssetToSell.marketValue / bestAssetToSell.asset.face_value - 1;
+          
+          liquidityActions.push(
+            premium < 0
+              ? `Consider selling ${bestAssetToSell.asset.name} at ${formatCurrency(bestAssetToSell.marketValue, userCurrency as CurrencyCode)} (${(premium * 100).toFixed(1)}% discount to face value)`
+              : `Consider selling ${bestAssetToSell.asset.name} at ${formatCurrency(bestAssetToSell.marketValue, userCurrency as CurrencyCode)} (${(premium * 100).toFixed(1)}% premium to face value)`
+          );
+        }
+      } else {
+        // No assets to sell - suggest alternative liquidity sources
+        liquidityActions.push('Consider establishing a credit line or holding more cash-equivalent assets for liquidity needs');
+        liquidityActions.push('Short-term Treasury bills or money market funds can provide necessary liquidity');
+      }
+      
+      // Add ladder adjustment suggestion if there are both shortfalls and surpluses
+      if (surplusMonths.length > 0) {
+        liquidityActions.push('Adjust your maturity ladder to better match cash flow needs with maturities');
+      }
       
       recommendations.push({
         category: 'liquidity',
-        title: 'Liquidity Gap Planning',
-        description: 'Your upcoming expenses may exceed your maturing investments in some periods:',
+        title: 'Liquidity Risk Management',
+        description: 'Your upcoming expenses require careful liquidity planning:',
         actionItems: liquidityActions
+      });
+    } else if (surplusMonths.length > 0) {
+      // If no shortfalls but significant surpluses, suggest reinvestment strategies
+      recommendations.push({
+        category: 'liquidity',
+        title: 'Reinvestment Opportunities',
+        description: 'You have upcoming periods with excess liquidity after expenses:',
+        actionItems: [
+          `Upcoming surplus periods: ${surplusMonths.slice(0, 3).join(', ')}${surplusMonths.length > 3 ? ` and ${surplusMonths.length - 3} more` : ''}`,
+          'Consider pre-planning reinvestment options for these surplus periods',
+          'Look for attractive fixed income opportunities in advance of maturity dates'
+        ]
       });
     }
   }
-
+  
   // 5. YIELD RECOMMENDATIONS FOR SPECIFIC REGIONS
   // Add region-specific yield recommendations
   if (assets.length >= 3) {
     const yieldSuggestions = [];
     
-    // Calculate weighted average yield
-    const totalValue = assets.reduce((sum, asset) => sum + asset.face_value, 0);
+    // Calculate weighted average yield using YTM
+    const totalValue = getTotalMarketValue(assets);
     const weightedYield = assets.reduce(
-      (sum, asset) => sum + (asset.interest_rate * asset.face_value),
+      (sum, asset) => sum + (calculateYTM(asset) * getMarketValue(asset)),
       0
     ) / totalValue;
     
+    // Use appropriate thresholds based on actual YTM calculations
     if (userRegion === 'eurozone' && weightedYield < 3.0) {
       yieldSuggestions.push('Consider peripheral Eurozone government bonds (Italy, Spain) for higher yields');
       yieldSuggestions.push('Investment grade corporate bonds can offer yield premiums over government debt');
@@ -685,16 +839,4 @@ function getApproximateRate(
     // Ultimate fallback 
     return term === 'short' ? 3.0 : term === 'medium' ? 3.5 : 4.0;
   }
-}
-
-// Format currency values with proper currency symbol
-function formatCurrency(amount: number, currencyCode = 'EUR'): string {
-  const locale = currencyCode === 'EUR' ? 'de-DE' : 
-                currencyCode === 'GBP' ? 'en-GB' : 'en-US';
-  
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: currencyCode,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }

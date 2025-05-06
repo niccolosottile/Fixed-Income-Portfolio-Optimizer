@@ -1,65 +1,98 @@
-/* Import Tailwind CSS directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Properties */
+/**
+ * CSS Variables 
+ * -------------
+ * Theme color variables for light and dark mode
+ */
 :root {
-  --primary: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-dark: #3730a3;
-  --success: #10b981;
+  /* Brand colors */
+  --primary: #4361ee;
+  --primary-light: #4895ef;
+  --primary-dark: #3f37c9;
+  
+  /* State colors */
+  --success: #0ca678;
   --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #06b6d4;
-  --background: #f9fafb;
-  --card-bg: #fff;
-  --foreground: #111827;
-  --foreground-muted: #6b7280;
-  --border: #e5e7eb;
-  --border-light: #f3f4f6;
-  --input-bg: #fff;
-  --input-border: #d1d5db;
-  --input-prefix-bg: #f9fafb;
-  --input-prefix-border: #e5e7eb;
-  --input-prefix-text: #6b7280;
+  --danger: #e11d48;
+  --info: #0ea5e9;
+  
+  /* UI colors */
+  --background: #f0f4f8;
+  --card-bg: #edf2f7;
+  --foreground: #1e293b;
+  --foreground-muted: #4b5563;
+  --border: #d1d5db;
+  --border-light: #e2e8f0;
+  
+  /* Input elements */
+  --input-bg: #f1f5f9;
+  --input-border: #cbd5e1;
+  --input-prefix-bg: #e2e8f0;
+  --input-prefix-border: #cbd5e1;
+  --input-prefix-text: #4b5563;
+  
+  /* RGB values for gradients and transparency */
+  --foreground-rgb: 30, 41, 59;
+  --background-start-rgb: 236, 240, 244;
+  --background-mid-rgb: 240, 244, 248;
+  --background-end-rgb: 244, 248, 252;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    /* Brand colors */
     --primary: #6366f1;
     --primary-light: #818cf8;
     --primary-dark: #4f46e5;
+    
+    /* State colors */
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
     --info: #06b6d4;
+    
+    /* UI colors */
     --background: #111827;
     --card-bg: #1f2937;
     --foreground: #f9fafb;
     --foreground-muted: #9ca3af;
     --border: #374151;
     --border-light: #1f2937;
-    --input-bg: #f3f4f6;  /* Lighter background in dark mode for contrast */
+    
+    /* Input elements */
+    --input-bg: #f3f4f6; 
     --input-border: #374151;
     --input-prefix-bg: #111827;
     --input-prefix-border: #374151;
     --input-prefix-text: #9ca3af;
+    
+    /* RGB values for gradients and transparency */
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 17, 24, 39;
+    --background-mid-rgb: 30, 27, 75;
+    --background-end-rgb: 31, 41, 55;
   }
 }
 
+/**
+ * Base Styles 
+ * -----------
+ * Styles applied at the root level
+ */
 body {
-  color: var(--foreground);
+  color: rgb(var(--foreground-rgb));
   background: var(--background);
   font-family: Inter, 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   min-height: 100vh;
 }
 
-/* Base styles */
+/* Base tailwind layer */
 @layer base {
   svg {
     @apply inline-block;
-    
     max-width: 100%;
     max-height: 100%;
     width: 100%;
@@ -67,8 +100,16 @@ body {
   }
 }
 
-/* Component styles */
+/**
+ * Component Styles
+ * ----------------
+ * Reusable component styles organized by type
+ */
 @layer components {
+  /**
+   * Form Elements
+   */
+  /* Input fields */
   input[type="text"].form-input,
   input[type="number"].form-input,
   input[type="email"].form-input,
@@ -79,7 +120,6 @@ body {
     @apply block w-full rounded-md border border-gray-300 py-2 shadow-sm text-sm;
     @apply focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50;
     @apply dark:border-gray-600 dark:text-gray-800;
-
     background-color: var(--input-bg);
     min-height: 2.5rem;
     transition: all 0.2s ease;
@@ -91,7 +131,6 @@ body {
     @apply block w-full rounded-md border border-gray-300 py-2 shadow-sm text-sm;
     @apply focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50;
     @apply dark:border-gray-600 dark:text-gray-800;
-
     background-color: var(--input-bg);
     min-height: 2.5rem;
     transition: all 0.2s ease;
@@ -103,22 +142,12 @@ body {
     width: 100% !important;
   }
 
-  /* Style for search inputs in AssetTable */
   .relative input[type="text"].form-input,
   .relative input[type="search"].form-input {
     @apply pl-10 pr-3 py-2;
   }
 
-  /* Fix specifically for the form in AssetTable */
-  .saas-card input[type="text"],
-  .saas-card input[type="search"],
-  .saas-card select {
-    @apply rounded-md border border-gray-300 shadow-sm text-sm;
-    @apply dark:border-gray-600 dark:text-gray-800;
-
-    background-color: var(--input-bg);
-  }
-
+  /* Form labels and inputs */
   .form-label {
     @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5;
   }
@@ -129,10 +158,120 @@ body {
     @apply dark:border-gray-600;
   }
 
+  /* Form layout components */
+  .form-section { 
+    @apply bg-slate-100 dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm; 
+  }
+  
+  .form-section-title {
+    @apply text-lg font-medium text-gray-900 dark:text-white flex items-center mb-4;
+  }
+  
+  .form-section-title .icon-container {
+    @apply mr-2;
+  }
+  
+  .form-row { 
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-6; 
+  }
+
+  /* Currency input components */
+  .currency-input-container {
+    @apply flex items-stretch relative;
+    height: 2.5rem;
+  }
+
+  .currency-symbol {
+    @apply flex items-center justify-center px-4 border border-r-0 border-gray-300 rounded-l-md whitespace-nowrap;
+    @apply text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300;
+    background-color: #e2e8f0; /* Equivalent to bg-slate-200 */
+    min-width: 3.5rem;
+  }
+
+  .currency-input {
+    @apply block w-full border border-gray-300 rounded-r-md shadow-sm text-sm;
+    @apply focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500;
+    @apply dark:border-gray-600 dark:text-gray-100 dark:bg-gray-800;
+    background-color: var(--input-bg);
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    border-left: 0;
+  }
+
+  /* Form input placeholder styling */
+  .form-input::placeholder,
+  .currency-input::placeholder,
+  textarea::placeholder,
+  select::placeholder {
+    @apply text-gray-500;
+    opacity: 1;
+  }
+
+  /* Firefox specific placeholder styling */
+  .form-input::-moz-placeholder,
+  .currency-input::-moz-placeholder,
+  textarea::-moz-placeholder,
+  select::-moz-placeholder {
+    @apply text-gray-500;
+    opacity: 1;
+  }
+
+  /* WebKit specific placeholder styling */
+  .form-input::-webkit-input-placeholder,
+  .currency-input::-webkit-input-placeholder,
+  textarea::-webkit-input-placeholder,
+  select::-webkit-input-placeholder {
+    @apply text-gray-500;
+    opacity: 1;
+  }
+
+  /* Input text color that respects theme */
+  .form-input,
+  .currency-input,
+  select.form-select {
+    @apply text-gray-800;
+  }
+
+  /* Ensure inputs have dark text in dark mode since they have light backgrounds */
+  .dark .form-input,
+  .dark .currency-input,
+  .dark select.form-select {
+    @apply text-gray-800;
+  }
+
+  /**
+   * Buttons
+   */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium;
+    @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+    @apply dark:bg-indigo-600 dark:hover:bg-indigo-700 shadow-sm transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium;
+    @apply bg-slate-200 text-gray-800 hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400;
+    @apply dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 shadow-sm transition-colors duration-200;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium;
+    @apply bg-slate-100 text-indigo-600 border border-indigo-300 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2;
+    @apply dark:bg-gray-800 dark:text-indigo-400 dark:border-indigo-700 dark:hover:bg-gray-700 shadow-sm transition-colors duration-200;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-md font-medium text-sm shadow-sm;
+    @apply bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+    @apply dark:bg-red-600 dark:hover:bg-red-700 transition-colors duration-200;
+  }
+
+  /**
+   * Icons and Icon Buttons
+   */
   /* Icon containers */
   .icon-container {
     @apply inline-flex items-center justify-center;
-
     width: fit-content;
     height: fit-content;
   }
@@ -142,10 +281,22 @@ body {
   .icon-md { @apply w-6 h-6; }
   .icon-lg { @apply w-8 h-8; }
 
-  /* LiquidityTimeline specific styles */
+  /* Icon buttons */
+  .icon-button {
+    @apply inline-flex items-center justify-center p-2 rounded-md text-gray-500;
+    @apply hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500;
+    @apply dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/30 transition-colors;
+  }
+  
+  .icon-button-danger {
+    @apply inline-flex items-center justify-center p-2 rounded-md text-gray-500;
+    @apply hover:text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500;
+    @apply dark:text-gray-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 transition-colors;
+  }
+
+  /* Component-specific icons */
   .liquidity-timeline-icon {
     @apply w-5 h-5;
-
     min-width: 1.25rem;
     min-height: 1.25rem;
     max-width: 1.25rem;
@@ -154,7 +305,6 @@ body {
 
   .liquidity-timeline-empty-icon {
     @apply w-6 h-6;
-
     min-width: 1.5rem;
     min-height: 1.5rem;
     max-width: 1.5rem;
@@ -163,175 +313,15 @@ body {
 
   .modal-close-icon {
     @apply w-5 h-5;
-
     min-width: 1.25rem;
     min-height: 1.25rem;
     max-width: 1.25rem;
     max-height: 1.25rem;
   }
 
-  /* Form layout */
-  .form-group { @apply space-y-6; }
-  
-  .form-section { 
-    @apply bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-100 dark:border-gray-700; 
-  }
-  
-  .form-section-title .icon-container {
-    @apply mr-2;
-  }
-  
-  .form-row { @apply grid grid-cols-1 sm:grid-cols-2 gap-6; }
-  .form-col { @apply space-y-4; }
-
-  /* Input with prefix */
-  .input-with-prefix {
-    @apply relative flex items-center;
-  }
-
-  .input-prefix {
-    @apply absolute left-0 top-0 bottom-0 flex items-center pointer-events-none;
-
-    background-color: var(--input-prefix-bg);
-    border-right: 1px solid var(--input-prefix-border);
-    color: var(--input-prefix-text);
-    border-radius: 0.375rem 0 0 0.375rem;
-    width: 3.5rem;
-    transition: all 0.2s ease;
-  }
-
-  .input-with-prefix .form-input {
-    @apply pl-14;
-
-    height: 2.5rem;
-    background-color: var(--input-bg);
-    border-color: var(--input-border);
-  }
-
-  /* Currency input fields - fixed styling to match correctly */
-  .currency-input-container {
-    @apply flex items-stretch relative;
-
-    height: 2.5rem;
-  }
-
-  .currency-symbol {
-    @apply flex items-center justify-center px-4 border border-r-0 border-gray-300 rounded-l-md whitespace-nowrap;
-    
-    /* Light mode styling */
-    background-color: #f9fafb;
-    color: #6b7280;
-    
-    /* Dark mode styling */
-    @apply dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300;
-    
-    min-width: 3.5rem;
-  }
-
-  .currency-input {
-    @apply block w-full border border-gray-300 rounded-r-md shadow-sm text-sm;
-    @apply focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500;
-    @apply dark:border-gray-600 dark:text-gray-100;
-
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-
-    /* Light mode styling */
-    background-color: #fff;
-    
-    /* Dark mode styling */
-    @apply dark:bg-gray-800;
-
-    border-left: 0;
-  }
-
-  /* Modal */
-  .modal-overlay {
-    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50;
-
-    animation: fade-in 0.2s ease-out;
-  }
-
-  .modal-container {
-    @apply fixed inset-0 z-50 overflow-y-auto;
-
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 1rem;
-    min-height: 100%;
-  }
-
-  .modal-content {
-    @apply relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full;
-
-    margin: 1rem auto;
-    max-width: 42rem;
-    max-height: calc(100vh - 2rem);
-    display: flex;
-    flex-direction: column;
-    animation: slide-in 0.3s ease-out;
-  }
-
-  /* Modal content input styling */
-  .modal-content input[type="text"].form-input,
-  .modal-content input[type="search"].form-input {
-    padding: 0.5rem 0.75rem 0.5rem 0.375rem;
-  }
-
-  .modal-header {
-    @apply flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700;
-
-    flex-shrink: 0;
-  }
-
-  .modal-body {
-    @apply p-6 overflow-y-auto;
-
-    flex: 1 1 auto;
-  }
-
-  .modal-footer {
-    @apply flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700;
-
-    flex-shrink: 0;
-  }
-
-  /* Cards and components */
-  .saas-card {
-    @apply rounded-lg shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all duration-200 bg-white dark:bg-gray-800 p-6;
-  }
-
-  .stat-card {
-    @apply flex flex-col p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all duration-200;
-  }
-
-  .stat-card-title { @apply text-sm text-gray-500 dark:text-gray-400 font-medium mb-2; }
-  .stat-card-value { @apply text-3xl font-bold text-gray-900 dark:text-white leading-none mb-2; }
-  .stat-card-desc { @apply text-sm text-gray-500 dark:text-gray-400; }
-
-  /* Tables */
-  .saas-table {
-    @apply min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden;
-  }
-
-  .saas-table thead {
-    @apply bg-gray-50 dark:bg-gray-700/50;
-  }
-
-  .saas-table th {
-    @apply px-4 py-3.5 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider;
-  }
-
-  .saas-table tbody {
-    @apply divide-y divide-gray-200 dark:divide-gray-700;
-  }
-
-  .saas-table td {
-    @apply px-4 py-3.5 whitespace-nowrap text-sm;
-  }
-
-  /* Badges */
+  /**
+   * Badges
+   */
   .badge {
     @apply inline-flex items-center px-2 py-1 rounded-md text-xs font-medium;
   }
@@ -344,112 +334,172 @@ body {
   .badge-gray { @apply bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300; }
   .badge-pink { @apply bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300; }
 
-  /* Buttons */
-  .btn-primary {
-    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+  /**
+   * Cards and Stat Components
+   */
+  .stat-card {
+    @apply flex flex-col p-6 bg-slate-100 dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-700 transition-all duration-200;
   }
 
-  .btn-secondary {
-    @apply inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+  .stat-card-title { @apply text-sm text-gray-600 dark:text-gray-400 font-medium mb-2; }
+  .stat-card-value { @apply text-3xl font-bold text-gray-900 dark:text-white leading-none mb-2; }
+  .stat-card-desc { @apply text-sm text-gray-600 dark:text-gray-400; }
+
+  /**
+   * Modal Components
+   */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50;
+    animation: fade-in 0.2s ease-out;
   }
 
-  .btn-outline {
-    @apply inline-flex items-center justify-center px-4 py-2 border border-indigo-600 rounded-md text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:border-indigo-500;
+  .modal-container {
+    @apply fixed inset-0 z-50 overflow-y-auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1rem;
+    min-height: 100%;
   }
 
-  .btn-danger {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-md font-medium bg-red-600 hover:bg-red-700 text-white;
+  .modal-content {
+    @apply relative bg-slate-100 dark:bg-gray-800 rounded-lg shadow-xl w-full;
+    margin: 1rem auto;
+    max-width: 42rem;
+    max-height: calc(100vh - 2rem);
+    display: flex;
+    flex-direction: column;
+    animation: slide-in 0.3s ease-out;
   }
 
-  /* Layout */
+  .modal-header {
+    @apply flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-slate-200 dark:bg-gray-700;
+    flex-shrink: 0;
+  }
+
+  .modal-header h2 {
+    @apply text-gray-800 dark:text-gray-100;
+  }
+
+  .modal-body {
+    @apply p-6 overflow-y-auto;
+    flex: 1 1 auto;
+  }
+
+  .modal-footer {
+    @apply flex justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700;
+    flex-shrink: 0;
+  }
+
+  /* Modal content input styling */
+  .modal-content input[type="text"].form-input,
+  .modal-content input[type="search"].form-input {
+    padding: 0.5rem 0.75rem 0.5rem 0.375rem;
+  }
+
+  /**
+   * Tables
+   */
+  .saas-table {
+    @apply min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-slate-100 dark:bg-gray-800 rounded-lg overflow-hidden;
+  }
+
+  .saas-table thead {
+    @apply bg-slate-200 dark:bg-gray-700/50;
+  }
+
+  .saas-table th {
+    @apply px-4 py-3.5 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider;
+  }
+
+  .saas-table tbody {
+    @apply divide-y divide-gray-200 dark:divide-gray-700;
+  }
+
+  .saas-table td {
+    @apply px-4 py-3.5 whitespace-nowrap text-sm;
+  }
+
+  /**
+   * Layout Components
+   */
   .dashboard-layout { @apply max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6; }
   .dashboard-header { @apply flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 mb-6 sm:mb-8; }
   .dashboard-grid { @apply grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6; }
 
-  /* Puzzle Layout */
-  .puzzle-layout {
-    @apply grid gap-6;
-
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    grid-auto-rows: minmax(min-content, max-content);
-    min-height: calc(100vh - 200px);
-  }
-
+  /**
+   * Puzzle Item Components
+   */
   .puzzle-item {
-    @apply rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200;
-
-    height: 100%;
+    @apply bg-slate-100 dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
   }
 
-  .puzzle-item-wide {
-    @apply col-span-12 md:col-span-8;
-  }
-
-  .puzzle-item-medium {
-    @apply col-span-12 md:col-span-6;
-  }
-
-  .puzzle-item-normal {
-    @apply col-span-12 md:col-span-4;
-  }
-
-  .puzzle-item-tall {
-    @apply row-span-2;
+  .dark .puzzle-item {
+    background-color: var(--card-bg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   }
 
   .puzzle-item-content {
-    @apply p-6;
-
+    @apply p-5 h-full;
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* Prevent overflow from affecting layout */
   }
 
-  /* Icon buttons */
-  .icon-button {
-    @apply inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition-colors;
-  }
-  
-  .icon-button-danger {
-    @apply inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-red-700 hover:bg-red-100 dark:text-gray-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 transition-colors;
+  /* Fixed heights for different screen sizes */
+  @media (min-width: 768px) {
+    .puzzle-item {
+      height: 500px; /* Fixed height on medium screens */
+    }
   }
 
-/* Form section headings */
-.form-section-title {
-  @apply text-lg font-medium text-gray-900 dark:text-white flex items-center mb-4;
+  /* Component-specific wrapper for scrollable content */
+  .component-scrollable-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    @apply custom-scrollbar;
+  }
+
+  /**
+   * Animations
+   */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(-1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
 }
 
-/* Animations */
-@keyframes fade-in {
-  from { 
-    opacity: 0; 
-  }
-
-  to { 
-    opacity: 1; 
-  }
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-1rem);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Custom scrollbar */
+/**
+ * Utility Classes
+ * ---------------
+ * Custom utility classes beyond Tailwind defaults
+ */
 @layer utilities {
+  /* Custom scrollbar utilities */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgb(156 163 175 / 50%) transparent;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -462,12 +512,12 @@ body {
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgb(156 163 175 / 50%);
-    border-radius: 3px;
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 20px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(156 163 175 / 70%);
+    background-color: rgba(156, 163, 175, 0.7);
   }
 
   .hide-scrollbar {
@@ -478,4 +528,4 @@ body {
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
-}}
+}

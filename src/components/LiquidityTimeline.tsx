@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { FixedIncomeAsset, LiquidityEvent } from '@/types';
+import { CurrencyCode, FixedIncomeAsset, LiquidityEvent } from '@/types';
 import { format, addMonths, isSameMonth } from 'date-fns';
 import AssetForm from './AssetForm';
+import { formatCurrency } from '@/lib/utils';
 
 interface LiquidityTimelineProps {
   events: LiquidityEvent[];
@@ -36,7 +37,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
         month: format(monthDate, 'MMM yyyy'),
         inflows: 0,
         outflows: 0,
-        currency: 'EUR', // Default, will be updated when we add items
+        currency: 'EUR', // Default currency, will be updated later
         items: []
       });
     }
@@ -51,14 +52,16 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
       const timelineEntry = timeline.find(t => isSameMonth(t.date, maturityDate));
       if (!timelineEntry) return; // Outside our 24 month window
       
+      const maturityValue = asset.face_value;
+      
       // Add to inflows
-      timelineEntry.inflows += asset.face_value;
+      timelineEntry.inflows += maturityValue;
       
       // Add as an item
       timelineEntry.items.push({
         type: 'maturity',
         name: asset.name,
-        amount: asset.face_value,
+        amount: maturityValue,
         date: maturityDate,
         currency: asset.currency
       });
@@ -97,22 +100,11 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
       }
     });
     
+    // Filter out months with no cash flow
     return timeline.filter(month => month.inflows > 0 || month.outflows > 0);
   };
 
   const timelineData = generateMonthlyTimeline();
-
-  // Format currency for display
-  const formatCurrency = (amount: number, currencyCode = 'EUR'): string => {
-    const locale = currencyCode === 'EUR' ? 'de-DE' : 
-                 currencyCode === 'GBP' ? 'en-GB' : 'en-US';
-    
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Calculate the net flow (positive or negative) for a month
   const getNetFlow = (month: typeof timelineData[0]): number => {
@@ -235,7 +227,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
                   </div>
                   <div className="text-right">
                     <div className={`font-medium ${getFlowColor(getNetFlow(month))}`}>
-                      {formatCurrency(getNetFlow(month), month.currency)}
+                      {formatCurrency(getNetFlow(month), month.currency as CurrencyCode)}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       Net flow
@@ -260,7 +252,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
                       </span>
                     </div>
                     <div className={`font-medium text-sm ${item.type === 'maturity' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {item.type === 'maturity' ? '+' : '-'}{formatCurrency(item.amount, item.currency)}
+                      {item.type === 'maturity' ? '+' : '-'}{formatCurrency(item.amount, item.currency as CurrencyCode)}
                     </div>
                   </div>
                 ))}
@@ -276,13 +268,13 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
                   <div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Inflows</div>
                     <div className="font-medium text-emerald-600 dark:text-emerald-400">
-                      +{formatCurrency(month.inflows, month.currency)}
+                      +{formatCurrency(month.inflows, month.currency as CurrencyCode)}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Outflows</div>
                     <div className="font-medium text-rose-600 dark:text-rose-400">
-                      -{formatCurrency(month.outflows, month.currency)}
+                      -{formatCurrency(month.outflows, month.currency as CurrencyCode)}
                     </div>
                   </div>
                 </div>

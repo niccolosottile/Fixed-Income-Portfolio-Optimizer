@@ -33,11 +33,26 @@ export async function POST(request: Request) {
       .insert([body])
       .select();
       
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating asset:', error);
+      return NextResponse.json({ 
+        error: 'Failed to create asset', 
+        details: error.message,
+        code: error.code,
+        hint: error.hint
+      }, { status: 500 });
+    }
+    
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'No data returned after insert' }, { status: 500 });
+    }
     
     return NextResponse.json(data[0]);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating asset:', error);
-    return NextResponse.json({ error: 'Failed to create asset' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to create asset', 
+      details: error.message || 'Unknown error'
+    }, { status: 500 });
   }
 }

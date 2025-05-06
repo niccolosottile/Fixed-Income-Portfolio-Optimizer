@@ -1,79 +1,45 @@
 'use client';
-import { useState } from 'react';
-import { FixedIncomeAsset } from '@/types';
+import { useState, useCallback } from 'react';
+import { FixedIncomeAsset, CURRENCIES, REGIONS, AssetType, InterestFrequency, IssuerType, RatingAgency, RegionCode, CurrencyCode } from '@/types';
+import { formatCurrency, parseInputValue } from '@/lib/utils';
 
-interface AssetFormProps {
-  userId: string;
-  onAssetAdded: (asset: FixedIncomeAsset | null) => void;
-  userCurrency?: string;
-  userCountry?: string;
-}
-
-const currencies = [
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'SEK', name: 'Swedish Krona' },
-  { code: 'NOK', name: 'Norwegian Krone' },
-  { code: 'DKK', name: 'Danish Krone' },
-  { code: 'PLN', name: 'Polish Zloty' },
-  { code: 'CZK', name: 'Czech Koruna' },
-];
-
-const regions = [
-  { code: 'eurozone', name: 'Eurozone' },
-  { code: 'uk', name: 'United Kingdom' },
-  { code: 'us', name: 'United States' },
-  { code: 'emea', name: 'Europe (non-Eurozone)' },
-  { code: 'apac', name: 'Asia Pacific' },
-  { code: 'latam', name: 'Latin America' },
-  { code: 'global', name: 'Global' },
-];
-
-export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', userCountry = 'eurozone' }: AssetFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+// Custom hook for asset form logic
+function useAssetForm(userId: string, userCurrency: string = 'EUR', userCountry: string = 'eurozone') {
+  const initialFormState = {
     id: '',
     user_id: userId,
-    type: 'governmentBond',
-    issuer_type: 'government',
+    type: 'governmentBond' as AssetType,
+    issuer_type: 'government' as IssuerType,
     name: '',
-    purchase_date: '',
-    maturity_date: '',
+    purchase_date: null as string | null,
+    maturity_date: null as string | null,
     face_value: 0,
     purchase_price: 0,
     current_price: 0,
     interest_rate: 0,
-    currency: userCurrency,
-    interest_payment_frequency: 'semiannual',
+    currency: userCurrency as CurrencyCode,
+    interest_payment_frequency: 'semiannual' as InterestFrequency,
     rating: '',
-    rating_agency: 'none',
-    region: userCountry,
+    rating_agency: 'none' as RatingAgency,
+    region: userCountry as RegionCode,
     taxable: true,
     esg_rating: '',
     callable: false,
-    call_date: ''
-  });
+    call_date: null as string | null
+  };
 
+  const [formData, setFormData] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const formatCurrency = (value: number) => {
-    if (!value && value !== 0) return '';
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(value);
-  };
+  const resetForm = useCallback(() => {
+    setFormData(initialFormState);
+    setFormErrors({});
+    setApiError(null);
+  }, [initialFormState]);
 
-  const parseInputValue = (value: string) => {
-    if (!value) return 0;
-    // Remove all non-numeric characters except decimal points
-    return parseFloat(value.replace(/[^0-9.]/g, ''));
-  };
-
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const errors: Record<string, string> = {};
     
     if (!formData.name.trim()) {
@@ -88,8 +54,8 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
       errors.maturity_date = 'Maturity date is required';
     }
     
-    if (formData.face_value <= 0) {
-      errors.face_value = 'Face value must be greater than 0';
+    if (formData.face_value <= 1000) {
+      errors.face_value = 'Face value must be greater than 1,000';
     }
     
     if (formData.purchase_price <= 0) {
@@ -100,14 +66,89 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
       errors.interest_rate = 'Interest rate must be between 0 and 100';
     }
     
+    if (formData.callable && !formData.call_date) {
+      errors.call_date = 'Call date is required for callable bonds';
+    }
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  };
+  }, [formData]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const value = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    // Handle checkbox separately
+    if (type === 'checkbox') {
+      setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+      return;
+    }
+    
+    // Handle empty date fields
+    if (type === 'date' && value === '') {
+      setFormData(prev => ({ ...prev, [name]: null }));
+      return;
+    }
+    
+    // Handle all other fields
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleCurrencyInput = useCallback((name: string, value: string) => {
+    const parsedValue = parseInputValue(value);
+    setFormData(prev => ({ ...prev, [name]: parsedValue }));
+  }, []);
+
+  const prepareFormData = useCallback(() => {
+    // Clean up data before sending to API
+    const { id, ...cleanedData } = { ...formData };
+    
+    if (formData.type === 'perpetualBond') {
+      cleanedData.maturity_date = null;
+    }
+    
+    if (!formData.callable) {
+      cleanedData.call_date = null;
+    }
+    
+    return cleanedData;
+  }, [formData]);
+
+  return {
+    formData,
+    formErrors,
+    apiError,
+    isSubmitting,
+    setApiError,
+    setIsSubmitting,
+    handleChange,
+    handleCurrencyInput,
+    validateForm,
+    prepareFormData,
+    resetForm
   };
+}
+
+interface AssetFormProps {
+  userId: string;
+  onAssetAdded: (asset: FixedIncomeAsset | null) => void;
+  userCurrency?: string;
+  userCountry?: string;
+}
+
+export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', userCountry = 'eurozone' }: AssetFormProps) {
+  const {
+    formData,
+    formErrors,
+    apiError,
+    isSubmitting,
+    setApiError,
+    setIsSubmitting,
+    handleChange,
+    handleCurrencyInput,
+    validateForm,
+    prepareFormData,
+    resetForm
+  } = useAssetForm(userId, userCurrency, userCountry);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,43 +158,35 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
     }
     
     setIsSubmitting(true);
+    setApiError(null);
+    
     try {
+      const cleanedData = prepareFormData();
+      
       const response = await fetch('/api/assets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(cleanedData),
       });
+      
+      const responseData = await response.json();
       
       if (!response.ok) {
-        throw new Error('Failed to add asset');
+        let errorMessage = 'Failed to add asset';
+        if (responseData.details) {
+          errorMessage += `: ${responseData.details}`;
+          if (responseData.hint) {
+            errorMessage += ` (${responseData.hint})`;
+          }
+        }
+        setApiError(errorMessage);
+        throw new Error(errorMessage);
       }
       
-      const newAsset = await response.json();
-      onAssetAdded(newAsset);
-      setFormData({
-        id: '',
-        user_id: userId,
-        type: 'governmentBond',
-        issuer_type: 'government',
-        name: '',
-        purchase_date: '',
-        maturity_date: '',
-        face_value: 0,
-        purchase_price: 0,
-        current_price: 0,
-        interest_rate: 0,
-        currency: userCurrency,
-        interest_payment_frequency: 'semiannual',
-        rating: '',
-        rating_agency: 'none',
-        region: userCountry,
-        taxable: true,
-        esg_rating: '',
-        callable: false,
-        call_date: ''
-      });
+      onAssetAdded(responseData);
+      resetForm();
     } catch (error) {
       console.error('Error adding asset:', error);
     } finally {
@@ -164,28 +197,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
   const handleCancel = (e: React.MouseEvent) => {
     e.preventDefault();
     onAssetAdded(null);
-    setFormData({
-      id: '',
-      user_id: userId,
-      type: 'governmentBond',
-      issuer_type: 'government',
-      name: '',
-      purchase_date: '',
-      maturity_date: '',
-      face_value: 0,
-      purchase_price: 0,
-      current_price: 0,
-      interest_rate: 0,
-      currency: userCurrency,
-      interest_payment_frequency: 'semiannual',
-      rating: '',
-      rating_agency: 'none',
-      region: userCountry,
-      taxable: true,
-      esg_rating: '',
-      callable: false,
-      call_date: ''
-    });
+    resetForm();
   };
 
   return (
@@ -193,7 +205,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column */}
         <div className="space-y-6">
-          <div className="form-section min-h-[23rem]">
+          <div className="form-section bg-slate-200 dark:bg-gray-800 min-h-[23rem]">
             <h3 className="form-section-title flex items-center">
               <span className="icon-container icon-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" className="text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
@@ -240,7 +252,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   </optgroup>
                 </select>
               </div>
-
               <div>
                 <label className="form-label">Issuer Type</label>
                 <select
@@ -257,7 +268,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <option value="other">Other</option>
                 </select>
               </div>
-
               <div>
                 <label className="form-label">Name/Description</label>
                 <input
@@ -276,7 +286,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
             </div>
           </div>
           
-          <div className="form-section min-h-[27rem]">
+          <div className="form-section bg-slate-200 dark:bg-gray-800 min-h-[27rem]">
             <h3 className="form-section-title flex items-center">
               <span className="icon-container icon-sm mr-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
@@ -305,7 +315,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <p className="mt-1 text-sm text-red-600">{formErrors.interest_rate}</p>
                 )}
               </div>
-
               <div>
                 <label className="form-label">Payment Frequency</label>
                 <select
@@ -323,7 +332,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <option value="irregular">Irregular</option>
                 </select>
               </div>
-
               <div>
                 <label className="form-label">Currency</label>
                 <select
@@ -333,14 +341,13 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   className="form-select"
                   required
                 >
-                  {currencies.map(currency => (
+                  {CURRENCIES.map(currency => (
                     <option key={currency.code} value={currency.code}>
                       {currency.name} ({currency.code})
                     </option>
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="form-label">Region</label>
                 <select
@@ -350,7 +357,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   className="form-select"
                   required
                 >
-                  {regions.map(region => (
+                  {REGIONS.map(region => (
                     <option key={region.code} value={region.code}>
                       {region.name}
                     </option>
@@ -360,10 +367,9 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
             </div>
           </div>
         </div>
-
         {/* Right Column */}
         <div className="space-y-6">
-        <div className="form-section min-h-[23rem]">
+        <div className="form-section bg-slate-200 dark:bg-gray-800 min-h-[23rem]">
             <h3 className="form-section-title flex items-center">
               <span className="icon-container icon-sm mr-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
@@ -380,42 +386,44 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <input
                     type="date"
                     name="purchase_date"
-                    value={formData.purchase_date}
+                    value={formData.purchase_date || ''}
                     onChange={handleChange}
-                    className="form-input"
+                    className={`form-input ${formErrors.purchase_date ? 'border-red-500' : ''}`}
                     required
                   />
+                  {formErrors.purchase_date && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.purchase_date}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Maturity Date</label>
                   <input
                     type="date"
                     name="maturity_date"
-                    value={formData.maturity_date}
+                    value={formData.maturity_date || ''}
                     onChange={handleChange}
-                    className="form-input"
+                    className={`form-input ${formErrors.maturity_date ? 'border-red-500' : ''}`}
                     required={formData.type !== 'perpetualBond'}
                     disabled={formData.type === 'perpetualBond'}
                   />
+                  {formErrors.maturity_date && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.maturity_date}</p>
+                  )}
                 </div>
               </div>
-
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="form-label">Face Value</label>
                   <div className="currency-input-container h-10">
-                    <div className="currency-symbol w-[4.5rem] flex-shrink-0">
-                      {currencies.find(c => c.code === formData.currency)?.code}
+                    <div className="currency-symbol w-[4.5rem] flex-shrink-0 text-gray-700 dark:text-gray-300">
+                      {CURRENCIES.find(c => c.code === formData.currency)?.code}
                     </div>
                     <input
                       type="text" 
                       name="face_value"
-                      value={formData.face_value !== 0 ? formatCurrency(formData.face_value) : ''}
-                      onChange={(e) => {
-                        const value = parseInputValue(e.target.value);
-                        setFormData({ ...formData, face_value: value });
-                      }}
-                      className="currency-input flex-grow"
+                      value={formData.face_value !== 0 ? formatCurrency(formData.face_value, formData.currency, { excludeSymbol: true, minimumFractionDigits: 0, maximumFractionDigits: 2 }) : ''}
+                      onChange={(e) => handleCurrencyInput('face_value', e.target.value)}
+                      className={`currency-input flex-grow text-gray-800 dark:text-gray-200 ${formErrors.face_value ? 'border-red-500' : ''}`}
                       placeholder="0.00"
                       required
                       aria-describedby="face-value-help"
@@ -431,18 +439,15 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                 <div>
                   <label className="form-label">Purchase Price</label>
                   <div className="currency-input-container h-10">
-                    <div className="currency-symbol w-[4.5rem] flex-shrink-0">
-                      {currencies.find(c => c.code === formData.currency)?.code}
+                    <div className="currency-symbol w-[4.5rem] flex-shrink-0 text-gray-700 dark:text-gray-300">
+                      {CURRENCIES.find(c => c.code === formData.currency)?.code}
                     </div>
                     <input
                       type="text"
                       name="purchase_price"
-                      value={formData.purchase_price !== 0 ? formatCurrency(formData.purchase_price) : ''} 
-                      onChange={(e) => {
-                        const value = parseInputValue(e.target.value);
-                        setFormData({ ...formData, purchase_price: value });
-                      }}
-                      className="currency-input flex-grow"
+                      value={formData.purchase_price !== 0 ? formatCurrency(formData.purchase_price, formData.currency, { excludeSymbol: true, minimumFractionDigits: 0, maximumFractionDigits: 2 }) : ''} 
+                      onChange={(e) => handleCurrencyInput('purchase_price', e.target.value)}
+                      className={`currency-input flex-grow text-gray-800 dark:text-gray-200 ${formErrors.purchase_price ? 'border-red-500' : ''}`}
                       placeholder="0.00"
                       required
                       aria-describedby="purchase-price-help"
@@ -458,7 +463,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
               </div>
             </div>
           </div>
-          <div className="form-section min-h-[27rem]">
+          <div className="form-section bg-slate-200 dark:bg-gray-800 min-h-[27rem]">
             <h3 className="form-section-title flex items-center">
               <span className="icon-container icon-sm mr-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" viewBox="0 0 20 20" fill="currentColor">
@@ -480,7 +485,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   placeholder="e.g., AAA"
                 />
               </div>
-
               <div>
                 <label className="form-label">Rating Agency</label>
                 <select
@@ -497,7 +501,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <option value="other">Other</option>
                 </select>
               </div>
-
               <div>
                 <label className="form-label">ESG Rating</label>
                 <input
@@ -509,7 +512,6 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   placeholder="e.g., AAA"
                 />
               </div>
-
               <div className="space-y-2">
                 <div className="flex items-center">
                   <input
@@ -542,19 +544,32 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                   <input
                     type="date"
                     name="call_date"
-                    value={formData.call_date}
+                    value={formData.call_date || ''}
                     onChange={handleChange}
-                    className="form-input date-input w-full"
+                    className={`form-input date-input w-full ${formErrors.call_date ? 'border-red-500' : ''}`}
                   />
+                  {formErrors.call_date && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.call_date}</p>
+                  )}
                 </div>
               )}
             </div>
           </div>
-          
-          {/* Add additional sections here if needed in the future */}
         </div>
       </div>
-
+      
+      {apiError && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800">
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <span className="font-medium">Error:</span>
+          </div>
+          <p className="ml-7 mt-1">{apiError}</p>
+        </div>
+      )}
+      
       <div className="modal-footer mt-6">
         <button
           type="button"
