@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
@@ -79,6 +79,7 @@ export default function Auth() {
     setLoading(true);
     
     try {
+      const supabase = createClient();
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -93,6 +94,10 @@ export default function Auth() {
       
       // If signup successful, create user profile
       if (data.user) {
+        // Set default currency and country
+        const defaultCurrency = 'EUR';
+        const defaultCountry = 'eurozone';
+        
         const { error: profileError } = await supabase
           .from('users')
           .insert([
@@ -102,6 +107,8 @@ export default function Auth() {
               name: formData.name || formData.email.split('@')[0],
               risk_tolerance: 'moderate',
               portfolio_value: 0,
+              currency: defaultCurrency,
+              country: defaultCountry
             }
           ]);
           
@@ -131,6 +138,7 @@ export default function Auth() {
     setLoading(true);
     
     try {
+      const supabase = createClient();
       const { error } = await signIn(formData.email, formData.password);
       
       if (error) throw error;

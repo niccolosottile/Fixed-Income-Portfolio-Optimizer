@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { FixedIncomeAsset, CURRENCIES, REGIONS, AssetType, InterestFrequency, IssuerType, RatingAgency, RegionCode, CurrencyCode } from '@/types';
-import { formatCurrency, parseInputValue } from '@/lib/utils';
+import { parseInputValue, formatNumberWithCommas } from '@/lib/utils';
 
 // Custom hook for asset form logic
 function useAssetForm(userId: string, userCurrency: string = 'EUR', userCountry: string = 'eurozone') {
@@ -168,7 +168,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(cleanedData),
+        body: JSON.stringify(cleanedData)
       });
       
       const responseData = await response.json();
@@ -181,6 +181,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
             errorMessage += ` (${responseData.hint})`;
           }
         }
+        
         setApiError(errorMessage);
         throw new Error(errorMessage);
       }
@@ -421,7 +422,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                     <input
                       type="text" 
                       name="face_value"
-                      value={formData.face_value !== 0 ? formatCurrency(formData.face_value, formData.currency, { excludeSymbol: true, minimumFractionDigits: 0, maximumFractionDigits: 2 }) : ''}
+                      value={formData.face_value !== 0 ? formatNumberWithCommas(formData.face_value) : ''}
                       onChange={(e) => handleCurrencyInput('face_value', e.target.value)}
                       className={`currency-input flex-grow text-gray-800 dark:text-gray-200 ${formErrors.face_value ? 'border-red-500' : ''}`}
                       placeholder="0.00"
@@ -445,7 +446,7 @@ export default function AssetForm({ userId, onAssetAdded, userCurrency = 'EUR', 
                     <input
                       type="text"
                       name="purchase_price"
-                      value={formData.purchase_price !== 0 ? formatCurrency(formData.purchase_price, formData.currency, { excludeSymbol: true, minimumFractionDigits: 0, maximumFractionDigits: 2 }) : ''} 
+                      value={formData.purchase_price !== 0 ? formatNumberWithCommas(formData.purchase_price) : ''} 
                       onChange={(e) => handleCurrencyInput('purchase_price', e.target.value)}
                       className={`currency-input flex-grow text-gray-800 dark:text-gray-200 ${formErrors.purchase_price ? 'border-red-500' : ''}`}
                       placeholder="0.00"

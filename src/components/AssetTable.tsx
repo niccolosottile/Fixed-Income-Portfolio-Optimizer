@@ -3,7 +3,6 @@ import { useState, Fragment } from 'react';
 import { FixedIncomeAsset, User, ASSET_TYPE_NAMES, REGIONS, ASSET_GROUPS, CurrencyCode } from '@/types';
 import AssetForm from './AssetForm';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
 import { getMarketValue, calculateYTM, formatCurrency } from '@/lib/utils';
 
 const regionNames = Object.fromEntries(
@@ -24,6 +23,9 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
   const [isAddAssetOpen, setIsAddAssetOpen] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isDeletingAsset, setIsDeletingAsset] = useState<boolean>(false);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string>('');
 
   const userCurrency = user?.currency || 'EUR';
 
@@ -99,29 +101,42 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
     setIsAddAssetOpen(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this asset?')) {
-      try {
-        setIsDeleting(true);
+  const openDeleteModal = (id: string) => {
+    setSelectedAssetId(id);
+    setIsDeletingAsset(true);
+    setDeleteError('');
+  };
 
-        const { error } = await supabase
-          .from('fixed_income_assets')
-          .delete()
-          .eq('id', id);
+  const handleDelete = async () => {
+    if (!selectedAssetId) return;
 
-        if (error) {
-          throw error;
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+
+      const response = await fetch(`/api/assets?id=${selectedAssetId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
         }
+      });
 
-        // Update UI state after successful deletion
-        setAssets(prevAssets => prevAssets.filter(asset => asset.id !== id));
-        console.log('Asset deleted successfully');
-      } catch (error) {
-        console.error('Error deleting asset:', error);
-        alert('Failed to delete asset. Please try again.');
-      } finally {
-        setIsDeleting(false);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.details || 'Failed to delete asset');
       }
+
+      // Update UI state after successful deletion
+      setAssets(prevAssets => prevAssets.filter(asset => asset.id !== selectedAssetId));
+      console.log('Asset deleted successfully');
+
+      // Close the modal
+      setIsDeletingAsset(false);
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      setDeleteError(error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -399,22 +414,14 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                             </span>
                           </button>
                           <button
-                            onClick={() => handleDelete(asset.id)}
+                            onClick={() => openDeleteModal(asset.id)}
                             className="icon-button-danger"
                             title="Delete asset"
-                            disabled={isDeleting}
                           >
                             <span className="icon-container icon-md">
-                              {isDeleting ? (
-                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                              ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              )}
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
                             </span>
                           </button>
                         </div>
@@ -525,6 +532,81 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
                   userCurrency={userCurrency}
                   userCountry={user?.country}
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Asset Confirmation Modal */}
+      {isDeletingAsset && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-content max-w-sm">
+              <div className="modal-header">
+                <h2 className="text-lg font-medium">Delete Asset</h2>
+                <button 
+                  onClick={() => setIsDeletingAsset(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="modal-body">
+                {deleteError && (
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md text-red-800 dark:text-red-300">
+                    <div className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">Error:</span>
+                    </div>
+                    <p className="ml-7 mt-1">{deleteError}</p>
+                  </div>
+                )}
+                
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Delete this asset?
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    This action cannot be undone. The asset will be permanently removed from your portfolio.
+                  </p>
+                </div>
+                
+                <div className="flex justify-center space-x-3">
+                  <button
+                    onClick={() => setIsDeletingAsset(false)}
+                    className="btn-secondary py-2 px-4"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="btn-danger py-2 px-4 flex items-center justify-center"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Asset'
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

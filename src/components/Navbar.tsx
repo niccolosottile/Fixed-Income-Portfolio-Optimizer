@@ -69,8 +69,13 @@ export default function Navbar({ user }: NavbarProps) {
 
   const handleSignOut = async () => {
     try {
+      // First call the signOut function from AuthProvider
       await signOut();
-      window.location.href = '/auth';
+      
+      // This gives users more time to see the transition state
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 200);
     } catch (error) {
       console.error('Error signing out:', error);
     }

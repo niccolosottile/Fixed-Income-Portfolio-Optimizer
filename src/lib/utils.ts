@@ -53,14 +53,45 @@ export function formatCurrency(
 
 /**
  * Parse numeric value from a formatted string input
- * Removes all non-numeric characters except decimal points
+ * Handles inputs with commas, dots, and other separators
  */
 export function parseInputValue(value: string): number {
   if (!value) return 0;
-  // Remove all non-numeric characters except decimal points
-  const cleanedValue = value.replace(/[^0-9.]/g, '');
+  
+  // Remove all non-numeric characters except the last decimal point
+  // This allows for thousands separators (commas, spaces, etc.) in the input
+  const cleanedValue = value.replace(/[^\d.]/g, '');
+  
+  // Ensure there's only one decimal point
+  const decimalPoints = cleanedValue.match(/\./g);
+  if (decimalPoints && decimalPoints.length > 1) {
+    // Keep only the last decimal point
+    const lastIndex = cleanedValue.lastIndexOf('.');
+    const beforeLastDecimal = cleanedValue.substring(0, lastIndex).replace(/\./g, '');
+    const afterLastDecimal = cleanedValue.substring(lastIndex);
+    return parseFloat(beforeLastDecimal + afterLastDecimal);
+  }
+  
   const parsedValue = parseFloat(cleanedValue);
   return isNaN(parsedValue) ? 0 : parsedValue;
+}
+
+/**
+ * Format a number with thousand separators for display
+ * Useful for input fields where we want to show formatted numbers
+ */
+export function formatNumberWithCommas(value: number | string): string {
+  if (!value && value !== 0) return '';
+  
+  // Convert to number if it's a string
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue)) return '';
+  
+  // Format with thousands separators but preserve decimal places as entered
+  const parts = numValue.toString().split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  
+  return parts.join('.');
 }
 
 /**

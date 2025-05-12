@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 type AuthContextType = {
   user: User | null;
@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to get user profile
   async function getUserProfile(userId: string) {
     try {
+      const supabase = createClient();
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         throw error;
       }
-
+      
       setUser(data);
       setError(null);
       return data;
@@ -47,16 +48,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth on component mount
   useEffect(() => {
     if (authInitialized) return;
-
+    
     setLoading(true);
     setError(null);
-
     let isMounted = true;
 
     const initializeAuth = async () => {
       try {
+        const supabase = createClient();
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
+        
         if (sessionError) {
           if (isMounted) {
             setError('Failed to retrieve session');
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initializeAuth();
-
+    
     return () => {
       isMounted = false;
     };
@@ -93,27 +94,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Set up auth state listener
   useEffect(() => {
     if (!authInitialized) return;
-
+    
     let isMounted = true;
-
+    const supabase = createClient();
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMounted) return;
-
-        if (event === 'SIGNED_IN' && session) {
-          if (!user || user.id !== session.user.id) {
-            setLoading(true);
-            await getUserProfile(session.user.id);
+        
+        if (session?.user) {
+          // Only fetch profile if we need to (user doesn't exist or ID changed)
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            if (!user || user.id !== session.user.id) {
+              setLoading(true);
+              await getUserProfile(session.user.id);
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setLoading(false);
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          setLoading(true);
-          await getUserProfile(session.user.id);
-        } else if (event === 'USER_UPDATED' && session) {
-          setLoading(true);
-          await getUserProfile(session.user.id);
         }
       }
     );
@@ -127,16 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign in function
   const signIn = async (email: string, password: string) => {
     try {
+      const supabase = createClient();
       setLoading(true);
       setError(null);
-
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-
+      
       if (error) throw error;
-
       return { error: null };
     } catch (error) {
       setLoading(false);
@@ -147,10 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out function
   const signOut = async () => {
     try {
+      const supabase = createClient();
       setLoading(true);
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-
+      
       setUser(null);
     } catch (error) {
       setError('Failed to sign out');

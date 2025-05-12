@@ -1,19 +1,24 @@
 'use client';
 import { useState } from 'react';
-import { CurrencyCode, FixedIncomeAsset, LiquidityEvent } from '@/types';
+import { CurrencyCode, FixedIncomeAsset, LiquidityEvent, User } from '@/types';
 import { format, addMonths, isSameMonth } from 'date-fns';
 import AssetForm from './AssetForm';
+import OutflowForm from './OutflowForm';
 import { formatCurrency } from '@/lib/utils';
 
 interface LiquidityTimelineProps {
   events: LiquidityEvent[];
   assets: FixedIncomeAsset[];
+  user: User;
 }
 
-export default function LiquidityTimeline({ events, assets }: LiquidityTimelineProps) {
+export default function LiquidityTimeline({ events, assets, user }: LiquidityTimelineProps) {
   const [isAddingAsset, setIsAddingAsset] = useState(false);
   const [isAddingEvent, setIsAddingEvent] = useState(false);
-
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const today = new Date();
   
   // Generate timeline for the next 24 months, merging both liquidity events 
@@ -25,7 +30,14 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
       inflows: number;
       outflows: number;
       currency: string;
-      items: Array<{ type: 'maturity' | 'event'; name: string; amount: number; date: Date; currency: string }>
+      items: Array<{ 
+        id?: string; 
+        type: 'maturity' | 'event'; 
+        name: string; 
+        amount: number; 
+        currency: string;
+        date: Date; 
+      }>
     }> = [];
     
     // Generate the next 24 months
@@ -59,6 +71,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
       
       // Add as an item
       timelineEntry.items.push({
+        id: asset.id,
         type: 'maturity',
         name: asset.name,
         amount: maturityValue,
@@ -87,6 +100,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
       
       // Add as an item
       timelineEntry.items.push({
+        id: event.id,
         type: 'event',
         name: event.description,
         amount: event.amount,
@@ -144,6 +158,41 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
         </div>
       );
     }
+  };
+
+  // Handle deleting an event
+  const handleDeleteEvent = async () => {
+    if (!selectedEventId) return;
+    
+    setIsDeleting(true);
+    setDeleteError('');
+    
+    try {
+      const response = await fetch(`/api/liquidity-events?id=${selectedEventId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete liquidity event');
+      }
+      
+      // Close the modal and refresh the page to show updated data
+      setIsDeletingEvent(false);
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error deleting liquidity event:', error);
+      setDeleteError(error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Initialize the delete modal
+  const openDeleteModal = (eventId: string) => {
+    setSelectedEventId(eventId);
+    setIsDeletingEvent(true);
   };
 
   return (
@@ -238,7 +287,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
               
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {month.items.slice(0, 2).map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3">
+                  <div key={i} className="flex items-center justify-between p-3 group">
                     <div className="flex items-center">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 ${
                         item.type === 'maturity' 
@@ -247,9 +296,22 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
                       }`}>
                         <span className="text-base leading-none">{item.type === 'maturity' ? '+' : '-'}</span>
                       </div>
-                      <span className="text-gray-800 dark:text-gray-200 font-medium text-sm truncate max-w-[120px]">
-                        {item.name}
-                      </span>
+                      <div className="flex items-center">
+                        <span className="text-gray-800 dark:text-gray-200 font-medium text-sm truncate max-w-[120px]">
+                          {item.name}
+                        </span>
+                        {item.type === 'event' && item.id && (
+                          <button 
+                            onClick={() => openDeleteModal(item.id as string)}
+                            className="ml-1.5 text-gray-400 hover:text-rose-500 dark:text-gray-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete event"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className={`font-medium text-sm ${item.type === 'maturity' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {item.type === 'maturity' ? '+' : '-'}{formatCurrency(item.amount, item.currency as CurrencyCode)}
@@ -284,11 +346,17 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
         </div>
       )}
       
-      {timelineData.length > 0 && (
-        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
           Only showing months with expected cash flows within the next 24 months.
         </div>
-      )}
+        <button
+          onClick={() => setIsAddingEvent(true)}
+          className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+        >
+          + Add Outflow
+        </button>
+      </div>
       
       {/* Add Asset Modal */}
       {isAddingAsset && (
@@ -308,14 +376,14 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
               </div>
               <div className="modal-body">
                 <AssetForm 
-                  userId={assets.length > 0 ? assets[0].user_id : 'user-id'} 
+                  userId={user.id} 
                   onAssetAdded={(asset) => {
                     setIsAddingAsset(false);
                     if (asset) {
                       window.location.reload();
                     }
                   }}
-                  userCurrency={assets.length > 0 ? assets[0].currency : 'EUR'}
+                  userCurrency={user.currency}
                 />
               </div>
             </div>
@@ -329,7 +397,7 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
           <div className="modal-container">
             <div className="modal-content max-w-md">
               <div className="modal-header">
-                <h2 className="text-lg font-medium">Add Liquidity Event</h2>
+                <h2 className="text-lg font-medium">Add Liquidity Outflow</h2>
                 <button 
                   onClick={() => setIsAddingEvent(false)}
                   className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -340,18 +408,91 @@ export default function LiquidityTimeline({ events, assets }: LiquidityTimelineP
                 </button>
               </div>
               <div className="modal-body">
-                <form className="space-y-4">
-                  <p className="text-sm text-gray-500">Coming soon: Add recurring payments, expected expenses, and other liquidity events.</p>
-                </form>
+                <OutflowForm 
+                  userId={user.id} 
+                  onEventAdded={(event) => {
+                    setIsAddingEvent(false);
+                    if (event) {
+                      window.location.reload();
+                    }
+                  }}
+                  userCurrency={user.currency as CurrencyCode}
+                />
               </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingEvent(false)}
-                  className="btn-secondary"
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Event Confirmation Modal */}
+      {isDeletingEvent && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-content max-w-sm">
+              <div className="modal-header">
+                <h2 className="text-lg font-medium">Delete Liquidity Event</h2>
+                <button 
+                  onClick={() => setIsDeletingEvent(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
-                  Close
+                  <svg xmlns="http://www.w3.org/2000/svg" className="modal-close-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
                 </button>
+              </div>
+              <div className="modal-body">
+                {deleteError && (
+                  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md text-red-800 dark:text-red-300">
+                    <div className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">Error:</span>
+                    </div>
+                    <p className="ml-7 mt-1">{deleteError}</p>
+                  </div>
+                )}
+                
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 mx-auto flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    Delete this liquidity event?
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    This action cannot be undone. The event will be permanently removed from your timeline.
+                  </p>
+                </div>
+                
+                <div className="flex justify-center space-x-3">
+                  <button
+                    onClick={() => setIsDeletingEvent(false)}
+                    className="btn-secondary py-2 px-4"
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteEvent}
+                    className="btn-danger py-2 px-4 flex items-center justify-center"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete Event'
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

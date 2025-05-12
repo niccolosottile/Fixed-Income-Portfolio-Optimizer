@@ -1,48 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { FixedIncomeAsset } from '@/types';
-
-export async function GET(request: Request) {
-  try {
-    // Create server client
-    const supabase = await createClient();
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-    
-    // Get the current user ID
-    const user_id = user.id;
-    
-    // Get assets for the authenticated user
-    const { data, error } = await supabase
-      .from('fixed_income_assets')
-      .select('*')
-      .eq('user_id', user_id)
-      .order('maturity_date', { ascending: true });
-      
-    if (error) {
-      console.error('Error fetching assets:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch assets' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json(data as FixedIncomeAsset[]);
-  } catch (error) {
-    console.error('Error handling assets fetch:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
-  }
-}
+import { LiquidityEvent } from '@/types';
 
 export async function POST(request: Request) {
   try {
@@ -64,30 +22,87 @@ export async function POST(request: Request) {
     // Parse the request body
     const body = await request.json();
     
-    // Create a new asset with correct user_id
-    const newAsset = {
-      ...body,
-      user_id: user_id
+    // Validate the input
+    if (!body.amount || !body.currency || !body.date || !body.description) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Create a new liquidity event
+    const newEvent = {
+      user_id: user_id,
+      amount: body.amount,
+      currency: body.currency,
+      date: body.date,
+      description: body.description
     };
     
-    // Insert the asset
+    // Insert the event into the database
     const { data, error } = await supabase
-      .from('fixed_income_assets')
-      .insert(newAsset)
+      .from('liquidity_events')
+      .insert(newEvent)
       .select()
       .single();
-      
+    
     if (error) {
-      console.error('Error creating asset:', error);
+      console.error('Error creating liquidity event:', error);
       return NextResponse.json(
-        { error: 'Failed to create asset', details: error.message },
+        { error: 'Failed to create liquidity event' },
         { status: 500 }
       );
     }
     
-    return NextResponse.json(data as FixedIncomeAsset);
-  } catch (error: any) {
-    console.error('Error handling asset creation:', error);
+    // Return the created event
+    return NextResponse.json(data as LiquidityEvent);
+    
+  } catch (error) {
+    console.error('Error handling liquidity event creation:', error);
+    return NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    // Create server client
+    const supabase = await createClient();
+    
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    // Get the current user ID
+    const user_id = user.id;
+    
+    // Get all liquidity events for the user
+    const { data, error } = await supabase
+      .from('liquidity_events')
+      .select('*')
+      .eq('user_id', user_id)
+      .order('date', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching liquidity events:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch liquidity events' },
+        { status: 500 }
+      );
+    }
+    
+    // Return the liquidity events
+    return NextResponse.json(data as LiquidityEvent[]);
+    
+  } catch (error) {
+    console.error('Error handling liquidity events fetch:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
@@ -112,28 +127,28 @@ export async function DELETE(request: Request) {
     // Get the current user ID
     const user_id = user.id;
     
-    // Get the asset ID from the URL
+    // Get the event ID from the URL
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
     if (!id) {
       return NextResponse.json(
-        { error: 'Missing asset ID' },
+        { error: 'Missing event ID' },
         { status: 400 }
       );
     }
     
-    // Delete the asset (ensuring it belongs to the current user)
+    // Delete the event (ensuring it belongs to the current user)
     const { error } = await supabase
-      .from('fixed_income_assets')
+      .from('liquidity_events')
       .delete()
       .eq('id', id)
       .eq('user_id', user_id);
     
     if (error) {
-      console.error('Error deleting asset:', error);
+      console.error('Error deleting liquidity event:', error);
       return NextResponse.json(
-        { error: 'Failed to delete asset' },
+        { error: 'Failed to delete liquidity event' },
         { status: 500 }
       );
     }
@@ -142,7 +157,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
     
   } catch (error) {
-    console.error('Error handling asset deletion:', error);
+    console.error('Error handling liquidity event deletion:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
