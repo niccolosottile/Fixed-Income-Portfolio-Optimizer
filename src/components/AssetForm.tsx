@@ -1,11 +1,11 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FixedIncomeAsset, CURRENCIES, REGIONS, AssetType, InterestFrequency, IssuerType, RatingAgency, RegionCode, CurrencyCode } from '@/types';
 import { parseInputValue, formatNumberWithCommas } from '@/lib/utils';
 
 // Custom hook for asset form logic
 function useAssetForm(userId: string, userCurrency: string = 'EUR', userCountry: string = 'eurozone') {
-  const initialFormState = {
+  const initialFormState = useMemo(() => ({
     id: '',
     user_id: userId,
     type: 'governmentBond' as AssetType,
@@ -26,7 +26,7 @@ function useAssetForm(userId: string, userCurrency: string = 'EUR', userCountry:
     esg_rating: '',
     callable: false,
     call_date: null as string | null
-  };
+  }), [userId, userCurrency, userCountry]);
 
   const [formData, setFormData] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -100,7 +100,7 @@ function useAssetForm(userId: string, userCurrency: string = 'EUR', userCountry:
 
   const prepareFormData = useCallback(() => {
     // Clean up data before sending to API
-    const { id, ...cleanedData } = { ...formData };
+    const { id: _ignored, ...cleanedData } = { ...formData };
     
     if (formData.type === 'perpetualBond') {
       cleanedData.maturity_date = null;

@@ -23,20 +23,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function getUserProfile(userId: string) {
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        throw error;
+      if (fetchError) {
+        throw fetchError;
       }
       
       setUser(data);
       setError(null);
       return data;
-    } catch (error) {
+    } catch (_fetchError) {
       setError('Failed to load user profile');
       setUser(null);
       return null;
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setLoading(false);
         }
-      } catch (error) {
+      } catch (_initError) {
         if (isMounted) {
           setError('Authentication system failed to initialize');
           setLoading(false);
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authInitialized]);
 
   // Set up auth state listener
   useEffect(() => {
@@ -130,16 +130,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
       
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
-      if (error) throw error;
+      if (signInError) throw signInError;
       return { error: null };
-    } catch (error) {
+    } catch (signInError) {
       setLoading(false);
-      return { error: error instanceof Error ? error : new Error('An unknown error occurred') };
+      return { error: signInError instanceof Error ? signInError : new Error('An unknown error occurred') };
     }
   };
 
@@ -149,11 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const supabase = createClient();
       setLoading(true);
       
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
       
       setUser(null);
-    } catch (error) {
+    } catch (_signOutError) {
       setError('Failed to sign out');
     } finally {
       setLoading(false);

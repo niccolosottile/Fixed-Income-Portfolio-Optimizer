@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthProvider';
 import { ThemeToggle } from './ThemeToggle';
+import { User } from '@/types';
 
 interface NavbarProps {
-  user: any;
+  user: User;
 }
 
 export default function Navbar({ user }: NavbarProps) {
@@ -14,7 +15,7 @@ export default function Navbar({ user }: NavbarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: string; message: string; type: string; read: boolean }[]>([]);
+  const [notifications, _setNotifications] = useState<{ id: string; message: string; type: string; read: boolean }[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const pathname = usePathname();
 
@@ -79,14 +80,6 @@ export default function Navbar({ user }: NavbarProps) {
     } catch (error) {
       console.error('Error signing out:', error);
     }
-  };
-
-  const markNotificationAsRead = (id: string) => {
-    setNotifications(
-      notifications.map(notification =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
   };
 
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;

@@ -1,7 +1,7 @@
 'use client';
 import { FixedIncomeAsset, User, ASSET_GROUPS, CURRENCY_SYMBOLS, CurrencyCode } from '@/types';
 import { Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, Title } from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, Title, TooltipItem } from 'chart.js';
 import { formatCurrency, getMarketValue, getTotalMarketValue, calculateYTM } from '@/lib/utils';
 
 ChartJS.register(ArcElement, Tooltip, Legend, Title);
@@ -220,9 +220,9 @@ export default function PortfolioSummary({ assets, user }: PortfolioSummaryProps
         padding: 12,
         boxPadding: 6,
         callbacks: {
-          label: function(tooltipItem: any) {
+          label: function(tooltipItem: TooltipItem<'doughnut'>) {
             const label = tooltipItem.label || '';
-            const value = tooltipItem.raw;
+            const value = tooltipItem.raw as number;
             const percentage = (value / metrics.totalValue * 100).toFixed(1);
             return `${label}: ${formatCurrency(value, userCurrency as CurrencyCode)} (${percentage}%)`;
           }

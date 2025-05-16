@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { FixedIncomeAsset } from '@/types';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Create server client
     const supabase = await createClient();
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     }
     
     return NextResponse.json(data as FixedIncomeAsset);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error handling asset creation:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },

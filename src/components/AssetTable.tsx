@@ -240,7 +240,7 @@ export default function AssetTable({ assets, setAssets, user }: AssetTableProps)
             </div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assets yet</h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-              Start building your fixed income portfolio by adding your first asset. Click the "Add Asset" button to get started.
+              Start building your fixed income portfolio by adding your first asset. Click the &quot;Add Asset&quot; button to get started.
             </p>
             <button 
               onClick={() => setIsAddAssetOpen(true)} 

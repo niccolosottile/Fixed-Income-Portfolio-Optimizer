@@ -16,7 +16,6 @@ export default function Dashboard() {
   const [liquidityEvents, setLiquidityEvents] = useState<LiquidityEvent[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Main data fetching function
@@ -73,11 +72,8 @@ export default function Dashboard() {
 
         setRecommendations(generatedRecommendations);
       }
-
-      // Clear any previous errors
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+      throw new Error(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setDataLoading(false);
     }
@@ -184,7 +180,7 @@ export default function Dashboard() {
   // Normal dashboard render with data
   return (
     <>
-      <Navbar user={authUser} />
+      <Navbar user={authUser as User} />
       <main className="dashboard-layout pt-20">
         {/* Dashboard Header */}
         <header className="dashboard-header mb-8">
